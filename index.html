@@ -92,11 +92,12 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .dot.b{background:#0a0a0e;border:1px solid #55555f}
 .fakeSub{display:block;font-size:9px;font-weight:700;opacity:.65;letter-spacing:1.5px;margin-top:2px}
 #betRow{display:flex;gap:10px;margin-top:10px}
-.betBtn{flex:1;padding:16px 0 13px;border-radius:16px;font-size:19px;font-weight:900;letter-spacing:1.5px;color:#fff;box-shadow:0 5px 16px rgba(0,0,0,.35)}
+.betBtn{flex:1;height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;font-size:19px;font-weight:900;letter-spacing:1.5px;color:#fff;box-shadow:0 5px 16px rgba(0,0,0,.35)}
 .betBtn:active{transform:scale(.97)}
 #btnRed{background:linear-gradient(160deg,#e01515,#9c0000)}
 #btnBlack{background:linear-gradient(160deg,#26262a,#050506);border:1px solid #3f3f46}
-.betSub{display:block;font-size:10.5px;font-weight:800;opacity:.8;letter-spacing:1px;margin-top:3px;min-height:13px}
+.betSub{display:block;font-size:10.5px;font-weight:800;opacity:.8;letter-spacing:1px;margin-top:3px}
+.betSub:empty{display:none}
 #tagRow{margin-top:10px;display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap}
 .tagLbl{font-size:11px;color:#8f8fb3;letter-spacing:.5px}
 .tag{padding:9px 11px;border-radius:11px;background:#252547;color:#c9c9e8;font-size:14px;font-weight:800;border:2px solid transparent;letter-spacing:.5px}
@@ -169,7 +170,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
     <button class="icoBtn" id="btnSettings" aria-label="Налаштування">&#x2699;&#xFE0E;</button>
   </header>
 
-  <div id="balRow"><span class="cur">Баланс</span><b id="bal">310</b><span class="cur">₴</span><span id="rec"></span></div>
+  <div id="balRow"><b id="bal">310</b><span class="cur">₴</span><span id="rec"></span></div>
 
   <div id="phaseBar">
     <div id="phRow"><span id="phLbl">Ставки відкрито</span><span id="phSec">15с</span></div>
