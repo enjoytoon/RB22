@@ -31,8 +31,9 @@ header{display:flex;align-items:center;gap:6px}
 #balRow{display:flex;align-items:baseline;justify-content:center;gap:10px;margin:8px 0 2px}
 #balRow .cur{font-size:15px;color:#8f8fb3}
 #bal{font-size:34px;font-weight:800;letter-spacing:.5px}
+#bal.long{font-size:26px}
 #bal.prev{color:#2dd4a7}
-#rec{font-size:11px;color:#8f8fb3}
+#rec{font-size:11px;color:#8f8fb3;white-space:nowrap}
 #phaseBar{margin-top:8px;background:#20203c;border-radius:12px;padding:8px 12px 10px;position:relative;overflow:hidden}
 #phRow{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700}
 #phLbl{color:#2dd4a7;letter-spacing:.5px}
@@ -98,6 +99,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 #btnBlack{background:linear-gradient(160deg,#26262a,#050506);border:1px solid #3f3f46}
 .betSub{display:block;font-size:10.5px;font-weight:800;opacity:.8;letter-spacing:1px;margin-top:3px}
 .betSub:empty{display:none}
+#betRow.small .betBtn{font-size:14px;letter-spacing:1px}
 #tagRow{margin-top:10px;display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap}
 .tagLbl{font-size:11px;color:#8f8fb3;letter-spacing:.5px}
 .tag{padding:9px 11px;border-radius:11px;background:#252547;color:#c9c9e8;font-size:14px;font-weight:800;border:2px solid transparent;letter-spacing:.5px}
@@ -106,6 +108,10 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .tagMini{font-size:12px;background:#252547;border:1px solid #ffd166;color:#ffd166;border-radius:7px;padding:1px 7px;vertical-align:2px;letter-spacing:.5px}
 .tagChip{min-width:48px;text-align:center;background:#252547;border:1px solid #ffd166;color:#ffd166;border-radius:8px;padding:5px 6px;font-size:12.5px;letter-spacing:.5px}
 .tagTxt{font-size:12.5px;color:#c9c9e0;line-height:1.4}
+.seg{display:flex;gap:6px}
+.seg button{padding:9px 12px;border-radius:11px;background:#252547;color:#c9c9e8;font-size:13px;font-weight:800;border:2px solid transparent;letter-spacing:.3px}
+.seg button.on{border-color:#ffd166;color:#ffd166;background:rgba(255,209,102,.12)}
+.seg button:active{transform:scale(.93)}
 #toast{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:50%;transform:translate(-50%,-140%);max-width:86%;background:#33335a;color:#fff;font-size:14px;font-weight:700;padding:11px 16px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.5);transition:transform .3s cubic-bezier(.3,1.3,.5,1);z-index:60;text-align:center;pointer-events:none}
 #toast.on{transform:translate(-50%,0)}
 #toast.good{background:#0d7a52}
@@ -210,6 +216,14 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
       <div class="step"><button id="sMinus">&#8722;</button><b id="vSteps">5</b><button id="sPlus">+</button></div>
     </div>
     <div class="planPrev" id="planPrev"></div>
+    <div class="row">
+      <div class="lbl">Сума на кнопках<span class="sub">ставка на ЧЕРВОНЕ / ЧОРНЕ</span></div>
+      <div class="seg" id="segAmt">
+        <button data-v="big">Велика</button>
+        <button data-v="small">Мала</button>
+        <button data-v="off">Без</button>
+      </div>
+    </div>
     <button class="neut" id="btnSaveDef">&#128190; Зберегти поточне як дефолт</button>
     <div class="defLine" id="defLine"></div>
     <div class="btnRow">
@@ -287,7 +301,7 @@ function planFor(balance,wantSteps){
 function seedHist(){var a=[],i;for(i=0;i<HSHOW;i++)a.push(rnd37());return a;}
 function freshBucket(){return {byStep:[0,0,0,0,0,0,0,0],losses:0};}
 function freshStats(){return {real:{n:0,w:0},fake:{n:0,w:0},byStep:[0,0,0,0,0,0,0,0],busts:0,profit:0,maxBal:310,million:false,tags:{},untag:freshBucket()};}
-function defaults(){return {v:1,balance:310,steps:5,startBal:310,
+function defaults(){return {v:1,balance:310,steps:5,startBal:310,betAmt:'big',
   def:{balance:310,steps:5},
   plan:null,step:0,dbl:false,
   hist:seedHist(),log:[],
@@ -314,6 +328,7 @@ function load(){
   if(!d||typeof d!=='object')return S;
   S.balance=Math.max(0,Math.round(num(d.balance,310)));
   S.steps=Math.min(MAXSTEPS,Math.max(1,Math.round(num(d.steps,5))));
+  S.betAmt=(d.betAmt==='small'||d.betAmt==='off')?d.betAmt:'big';
   if(d.def&&typeof d.def==='object'){
     S.def.steps=Math.min(MAXSTEPS,Math.max(1,Math.round(num(d.def.steps,5))));
   }
@@ -510,10 +525,12 @@ function render(){
       previewOn=true;
     }
   }
-  $('bal').textContent=fmt(showBal);
+  var balStr=fmt(showBal);
+  $('bal').textContent=balStr;
+  $('bal').classList.toggle('long',balStr.length>=7); /* довгі суми — трохи менший шрифт, щоб в один рядок */
   $('bal').classList.toggle('prev',previewOn);
   if(previewOn){
-    $('rec').innerHTML='<b class="ok">якщо виграю ставку · тапни ще раз</b>';
+    $('rec').innerHTML='<b class="ok">якщо виграю ставку</b>';
   }else{
     var diff=showBal-S.startBal;
     var sign=diff>=0?'+':'−';
@@ -586,8 +603,15 @@ function renderControls(){
   if(!pl){amt='—';sub='нема грошей';}
   else if(S.dbl){amt=fmt(pl.bets[k]+pl.bets[k+1])+' ₴';sub='×2';}
   else{amt=fmt(pl.bets[k])+' ₴';sub='';}
-  $('amtRed').textContent=amt;
-  $('amtBlack').textContent=amt;
+  if(S.betAmt==='off'){
+    /* суму сховано — повертаємо слова, колір і так видно з кнопки */
+    $('amtRed').textContent='ЧЕРВОНЕ';
+    $('amtBlack').textContent='ЧОРНЕ';
+  }else{
+    $('amtRed').textContent=amt;
+    $('amtBlack').textContent=amt;
+  }
+  $('betRow').classList.toggle('small',S.betAmt==='small');
   $('subRed').textContent=sub;
   $('subBlack').textContent=sub;
   var b=$('btnDbl');
@@ -668,6 +692,8 @@ function confetti(nn){
 /* ---- модалки ---- */
 function syncSettings(){
   $('vSteps').textContent=S.steps;
+  var sa=$('segAmt').children,si;
+  for(si=0;si<sa.length;si++)sa[si].classList.toggle('on',sa[si].getAttribute('data-v')===S.betAmt);
   var pl=planFor(S.balance,S.steps);
   $('planPrev').innerHTML=pl
     ?('План на зараз: '+pl.bets.map(fmt).join(' → ')+'<br>разом '+fmt(pl.committed)+' ₴ · залишок '+fmt(pl.leftover)+' ₴'
@@ -771,6 +797,13 @@ $('btnDbl').addEventListener('click',function(){
   if(!pl||(pl.steps-S.step)<2){toast('×2 недоступно — це останній крок драбини','info');return;}
   S.dbl=!S.dbl;
   save();renderControls();
+});
+$('segAmt').addEventListener('click',function(e){
+  var b=e.target;
+  while(b&&b!==this&&b.tagName!=='BUTTON')b=b.parentNode;
+  if(!b||b===this)return;
+  S.betAmt=b.getAttribute('data-v');
+  save();renderControls();syncSettings();
 });
 $('tagRow').addEventListener('click',function(e){
   var b=e.target;
