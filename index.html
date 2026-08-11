@@ -19,12 +19,19 @@ button{font-family:inherit;cursor:pointer;outline:none;color:inherit;background:
 #app{height:100%;max-width:440px;margin:0 auto;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px calc(env(safe-area-inset-bottom,0px) + 14px)}
 #app>*{flex-shrink:0}
 header{display:flex;align-items:center;gap:6px}
-h1{font-size:12px;letter-spacing:2px;font-weight:700;color:#8f8fb3;text-transform:uppercase;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hpill{display:flex;align-items:center;gap:2px;background:#252547;border-radius:12px;padding:3px;flex:none}
+.hpill button{width:28px;height:34px;font-size:18px;font-weight:700;color:#c9c9e8;border-radius:9px}
+.hpill button:active{background:#33335a;transform:scale(.92)}
+.hmid{min-width:46px;text-align:center;line-height:1.05}
+.hmid small{display:block;font-size:9px;color:#8f8fb3;text-transform:uppercase;letter-spacing:1px}
+.hmid b{font-size:15px;color:#e8e8f2}
+.hsp{flex:1}
 .icoBtn{width:38px;height:38px;border-radius:12px;background:#252547;color:#c9c9e8;font-size:18px;line-height:1;flex:none}
 .icoBtn:active{transform:scale(.9)}
 #balRow{display:flex;align-items:baseline;justify-content:center;gap:10px;margin:8px 0 2px}
 #balRow .cur{font-size:15px;color:#8f8fb3}
 #bal{font-size:34px;font-weight:800;letter-spacing:.5px}
+#bal.prev{color:#2dd4a7}
 #rec{font-size:11px;color:#8f8fb3}
 #phaseBar{margin-top:8px;background:#20203c;border-radius:12px;padding:8px 12px 10px;position:relative;overflow:hidden}
 #phRow{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700}
@@ -89,7 +96,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .betBtn:active{transform:scale(.97)}
 #btnRed{background:linear-gradient(160deg,#e01515,#9c0000)}
 #btnBlack{background:linear-gradient(160deg,#26262a,#050506);border:1px solid #3f3f46}
-.betSub{display:block;font-size:10.5px;font-weight:800;opacity:.8;letter-spacing:1px;margin-top:3px}
+.betSub{display:block;font-size:10.5px;font-weight:800;opacity:.8;letter-spacing:1px;margin-top:3px;min-height:13px}
 #tagRow{margin-top:10px;display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap}
 .tagLbl{font-size:11px;color:#8f8fb3;letter-spacing:.5px}
 .tag{padding:9px 11px;border-radius:11px;background:#252547;color:#c9c9e8;font-size:14px;font-weight:800;border:2px solid transparent;letter-spacing:.5px}
@@ -132,6 +139,16 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .stBar i{display:block;height:100%;background:#2dd4a7;border-radius:6px;min-width:2px}
 .stRow b{min-width:22px;text-align:right}
 .stEmpty{font-size:12.5px;color:#8f8fb3;text-align:center;margin:10px 0}
+.logRow{display:flex;align-items:center;gap:8px;padding:4px 0;border-top:1px solid #2c2c4e;font-size:12px;color:#c9c9e0}
+.lq{flex:none;width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:10.5px}
+.lq.r{background:#c01111}
+.lq.b{background:#111116;border:1px solid #3a3a44}
+.lq.g{background:#0d8a49}
+.logRow .dot{flex:none}
+.logOk{color:#2dd4a7;font-weight:900}
+.logBad{color:#ff5f5f;font-weight:900}
+.logFake{color:#8f8fb3;font-size:11px}
+.logBal{margin-left:auto;color:#a9a9cc}
 .stHr{border-top:1px solid #33335a;margin:12px 0}
 #fx{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:50}
 #fx i{position:absolute;top:-14px;border-radius:2px;animation:fall linear forwards}
@@ -141,7 +158,12 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 <body>
 <div id="app">
   <header>
-    <h1>Червоне · Чорне</h1>
+    <div class="hpill">
+      <button id="stMinus">&#8722;</button>
+      <div class="hmid"><small>Кроків</small><b id="stVal">5</b></div>
+      <button id="stPlus">+</button>
+    </div>
+    <div class="hsp"></div>
     <button class="icoBtn" id="btnQuickReset" aria-label="Скинути до дефолту">&#8634;</button>
     <button class="icoBtn" id="btnStats" aria-label="Статистика">&#128202;</button>
     <button class="icoBtn" id="btnSettings" aria-label="Налаштування">&#x2699;&#xFE0E;</button>
@@ -160,13 +182,13 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 
   <div id="actRow">
     <button id="btnDbl">×2 СТАВКА<small id="dblSub"></small></button>
-    <button id="btnStop">✋ Стоп сет</button>
+    <button id="btnStop">Стоп сет</button>
     <button id="btnSkip">Пропустити ▸▸</button>
   </div>
 
   <div id="betRow">
-    <button class="betBtn" id="btnRed">ЧЕРВОНЕ<span class="betSub" id="subRed"></span></button>
-    <button class="betBtn" id="btnBlack">ЧОРНЕ<span class="betSub" id="subBlack"></span></button>
+    <button class="betBtn" id="btnRed"><span id="amtRed"></span><span class="betSub" id="subRed"></span></button>
+    <button class="betBtn" id="btnBlack"><span id="amtBlack"></span><span class="betSub" id="subBlack"></span></button>
   </div>
 
   <div id="fakeRow">
@@ -207,6 +229,9 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
     <div class="stHr"></div>
     <div class="lbl" style="margin-bottom:6px">За мітками</div>
     <div id="stTags"></div>
+    <div class="stHr"></div>
+    <div class="lbl" style="margin-bottom:6px">Історія ставок <span class="sub" style="display:inline">останні 50</span></div>
+    <div id="stLog"></div>
     <button id="btnCloseStats">Готово</button>
   </div>
 </div>
@@ -264,7 +289,7 @@ function freshStats(){return {real:{n:0,w:0},fake:{n:0,w:0},byStep:[0,0,0,0,0,0,
 function defaults(){return {v:1,balance:310,steps:5,startBal:310,
   def:{balance:310,steps:5},
   plan:null,step:0,dbl:false,
-  hist:seedHist(),
+  hist:seedHist(),log:[],
   phase:'bet',phaseEnd:Date.now()+BET_MS,
   last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
@@ -298,6 +323,11 @@ function load(){
   if(!S.plan||S.step>=S.plan.steps){S.plan=null;S.step=0;}
   S.dbl=!!d.dbl;
   if(Array.isArray(d.hist)&&d.hist.length>0&&d.hist.every(function(x){return typeof x==='number'&&x>=0&&x<=36;}))S.hist=d.hist.slice(0,HKEEP);
+  if(Array.isArray(d.log))S.log=d.log.filter(function(L){
+    return L&&typeof L==='object'&&typeof L.n==='number'&&L.n>=0&&L.n<=36
+      &&(L.bet==='r'||L.bet==='b')&&typeof L.hit==='boolean'
+      &&typeof L.delta==='number'&&typeof L.bal==='number';
+  }).slice(0,100);
   if(d.phase==='spin')S.phase='spin';
   S.phaseEnd=num(d.phaseEnd,Date.now()+BET_MS);
   if(d.last&&typeof d.last==='object'&&typeof d.last.n==='number'&&d.last.n>=0&&d.last.n<=36)S.last=d.last;
@@ -328,6 +358,7 @@ var revealShown=!S.revealAt||Date.now()>=S.revealAt;
 var pendMillion=false;
 var popAt=0;
 var snap=null; /* що показувати, поки крутиться: старий баланс, щоб не спалити результат */
+var balPreview=false; /* тап по балансу: показати суму, ЯКЩО виграю поточну ставку */
 function inSuspense(){return !!(S.revealAt&&Date.now()<S.revealAt);}
 function pushHist(n){S.hist.unshift(n);if(S.hist.length>HKEEP)S.hist.length=HKEEP;}
 
@@ -356,6 +387,7 @@ function doBet(color,mode,dbl){
     amount=pv?pv.bets[Math.min(S.step,pv.steps-1)]:0;
   }
   /* до розіграшу — щоб ні баланс, ні історія не видали результат раніше за цифру */
+  balPreview=false;
   snap={bal:S.balance,hideHist:1};
   var n=rnd37();
   pushHist(n);
@@ -389,6 +421,8 @@ function doBet(color,mode,dbl){
   }else{
     S.stats.fake.n++;if(hit)S.stats.fake.w++;
   }
+  S.log.unshift({n:n,bet:color,mode:mode,hit:hit,delta:mode==='real'?delta:0,bal:S.balance});
+  if(S.log.length>100)S.log.length=100;
   S.last={n:n,kind:'bet',betColor:color,mode:mode,hit:hit,amount:amount,delta:delta,
     bust:bust,double:double,stepFrom:stepFrom+1,
     stepDone:stepFrom+(double?2:1),stepsTotal:stepsTotal};
@@ -407,13 +441,19 @@ function tapBet(color,mode){
   }
   doBet(color,mode,mode==='real'&&S.dbl);
 }
+function adjustSteps(d){
+  if(inSuspense())return;
+  if(S.plan){toast('Сет активний — заверши його або натисни «Стоп сет»','info');return;}
+  S.steps=Math.min(MAXSTEPS,Math.max(1,S.steps+d));
+  save();render();
+}
 function stopSet(){
   if(inSuspense())return;
   if(!S.plan){toast('Сет і так не активний','info');return;}
   /* сума, що лишилась, стає банком нового сету; в статистику нічого не пишемо */
   S.plan=null;S.step=0;S.dbl=false;S.tagSel=null;
   save();render();
-  toast('✋ Сет зупинено — граєш далі з '+fmt(S.balance)+' ₴','info');
+  toast('Сет зупинено — граєш далі з '+fmt(S.balance)+' ₴','info');
 }
 function skipRound(){
   if(inSuspense())return;
@@ -457,12 +497,28 @@ function catchUp(){
 
 /* ---- рендер ---- */
 function render(){
+  $('stVal').textContent=S.steps;
   var showBal=(inSuspense()&&snap)?snap.bal:S.balance;
+  var previewOn=false;
+  if(balPreview&&!inSuspense()){
+    var ppl=S.plan||planFor(S.balance,S.steps);
+    if(ppl){
+      var pk=Math.min(S.step,ppl.steps-1);
+      var pw=ppl.bets[pk]+((S.dbl&&(ppl.steps-S.step)>=2)?ppl.bets[pk+1]:0);
+      showBal=S.balance+pw;
+      previewOn=true;
+    }
+  }
   $('bal').textContent=fmt(showBal);
-  var diff=showBal-S.startBal;
-  var sign=diff>=0?'+':'−';
-  var pctTxt=S.startBal>0?' · '+sign+Math.round(Math.abs(diff)/S.startBal*100)+'%':'';
-  $('rec').innerHTML='<b class="'+(diff>=0?'ok':'bad')+'">'+sign+fmt(Math.abs(diff))+' ₴'+pctTxt+'</b>';
+  $('bal').classList.toggle('prev',previewOn);
+  if(previewOn){
+    $('rec').innerHTML='<b class="ok">якщо виграю ставку · тапни ще раз</b>';
+  }else{
+    var diff=showBal-S.startBal;
+    var sign=diff>=0?'+':'−';
+    var pctTxt=S.startBal>0?' · '+sign+Math.round(Math.abs(diff)/S.startBal*100)+'%':'';
+    $('rec').innerHTML='<b class="'+(diff>=0?'ok':'bad')+'">'+sign+fmt(Math.abs(diff))+' ₴'+pctTxt+'</b>';
+  }
   renderBig();
   renderHist();
   renderLadder();
@@ -519,17 +575,20 @@ function renderLadder(){
   $('ladder').innerHTML=l1+'<br>'+l2;
 }
 function renderControls(){
-  if(inSuspense()&&$('subRed').textContent!=='')return;
+  if(inSuspense()&&$('amtRed').textContent!=='')return;
   var pl=S.plan||planFor(S.balance,S.steps);
   var k=pl?Math.min(S.step,pl.steps-1):0;
   var canDbl=!!pl&&(pl.steps-S.step)>=2;
   if(!canDbl&&S.dbl)S.dbl=false;
-  var amt;
-  if(!pl)amt='💰 нема грошей';
-  else if(S.dbl)amt='💰 ×2 · '+fmt(pl.bets[k]+pl.bets[k+1])+' ₴';
-  else amt='💰 '+fmt(pl.bets[k])+' ₴';
-  $('subRed').textContent=amt;
-  $('subBlack').textContent=amt;
+  /* колір видно з самої кнопки — великими пишемо суму ставки */
+  var amt,sub;
+  if(!pl){amt='—';sub='нема грошей';}
+  else if(S.dbl){amt=fmt(pl.bets[k]+pl.bets[k+1])+' ₴';sub='×2';}
+  else{amt=fmt(pl.bets[k])+' ₴';sub='';}
+  $('amtRed').textContent=amt;
+  $('amtBlack').textContent=amt;
+  $('subRed').textContent=sub;
+  $('subBlack').textContent=sub;
   var b=$('btnDbl');
   b.classList.toggle('on',S.dbl);
   b.classList.toggle('off',!canDbl);
@@ -660,6 +719,21 @@ function syncStats(){
       +'<span class="tagTxt">'+bucketTxt(s.untag)+'</span></div>';
   }
   $('stTags').innerHTML=th||'<div class="stEmpty">Мітка чіпляється до ВСЬОГО сету (до виграшу чи повного програшу) і рахує, з якого разу вгадав</div>';
+  var lh='',lo=(inSuspense()&&snap)?1:0,li,LG;
+  var arr=S.log.slice(lo,lo+50);
+  for(li=0;li<arr.length;li++){
+    LG=arr[li];
+    lh+='<div class="logRow">'
+      +'<span class="lq '+colorOf(LG.n)+'">'+LG.n+'</span>'
+      +'<span>на <i class="dot '+(LG.bet==='r'?'r':'b')+'"></i></span>'
+      +'<span class="'+(LG.hit?'logOk':'logBad')+'">'+(LG.hit?'✓':'✗')+'</span>'
+      +(LG.mode==='real'
+        ?'<span class="'+(LG.delta>=0?'logOk':'logBad')+'">'+(LG.delta>=0?'+':'−')+fmt(Math.abs(LG.delta))+' ₴</span>'
+          +'<span class="logBal">'+fmt(LG.bal)+' ₴</span>'
+        :'<span class="logFake">фейк</span>')
+      +'</div>';
+  }
+  $('stLog').innerHTML=lh||'<div class="stEmpty">Ще нема ставок</div>';
 }
 function armConfirm(btn,fn){
   if(btn.dataset.armed){
@@ -684,6 +758,13 @@ $('btnFakeRed').addEventListener('click',function(){tapBet('r','fake');});
 $('btnFakeBlack').addEventListener('click',function(){tapBet('b','fake');});
 $('btnSkip').addEventListener('click',skipRound);
 $('btnStop').addEventListener('click',stopSet);
+$('stMinus').addEventListener('click',function(){adjustSteps(-1);});
+$('stPlus').addEventListener('click',function(){adjustSteps(1);});
+$('balRow').addEventListener('click',function(){
+  if(inSuspense())return;
+  balPreview=!balPreview;
+  render();
+});
 $('btnDbl').addEventListener('click',function(){
   var pl=S.plan||planFor(S.balance,S.steps);
   if(!pl||(pl.steps-S.step)<2){toast('×2 недоступно — це останній крок драбини','info');return;}
@@ -725,14 +806,15 @@ $('modalSet').addEventListener('click',function(e){if(e.target===this)this.class
 $('btnStats').addEventListener('click',function(){syncStats();$('modalStats').classList.remove('hidden');});
 $('btnCloseStats').addEventListener('click',function(){$('modalStats').classList.add('hidden');});
 $('modalStats').addEventListener('click',function(e){if(e.target===this)this.classList.add('hidden');});
-$('sMinus').addEventListener('click',function(){S.steps=Math.max(1,S.steps-1);resetLadder();save();syncSettings();render();});
-$('sPlus').addEventListener('click',function(){S.steps=Math.min(MAXSTEPS,S.steps+1);resetLadder();save();syncSettings();render();});
+$('sMinus').addEventListener('click',function(){adjustSteps(-1);syncSettings();});
+$('sPlus').addEventListener('click',function(){adjustSteps(1);syncSettings();});
 $('btnResetStats').addEventListener('click',function(){
   armConfirm(this,function(){
     var keepMax=S.balance;
     S.stats=freshStats();
     S.stats.maxBal=keepMax;
     S.last=null;
+    S.log=[];
     save();render();
     toast('Статистику скинуто','info');
   });
