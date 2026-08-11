@@ -259,7 +259,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 var FAST=/(^|[?&])fast/.test(location.search);
 var BET_MS=FAST?4000:15000, SPIN_MS=FAST?3000:15000;
 var SUSPENSE=1000;
-var KEY='redblack-v1', UNIT=5, HKEEP=30, HSHOW=14, MAXSTEPS=8;
+var KEY='redblack-v1', UNIT=5, HKEEP=30, HSHOW=14, MAXSTEPS=12;
 var TAGS=['100%','++','+','?','??','M','MM','єЦіль'];
 var REDS={1:1,3:1,5:1,7:1,9:1,12:1,14:1,16:1,18:1,19:1,21:1,23:1,25:1,27:1,30:1,32:1,34:1,36:1};
 function colorOf(n){return n===0?'g':(REDS[n]?'r':'b');}
@@ -299,8 +299,9 @@ function planFor(balance,wantSteps){
 
 /* ---- стан ---- */
 function seedHist(){var a=[],i;for(i=0;i<HSHOW;i++)a.push(rnd37());return a;}
-function freshBucket(){return {byStep:[0,0,0,0,0,0,0,0],losses:0};}
-function freshStats(){return {real:{n:0,w:0},fake:{n:0,w:0},byStep:[0,0,0,0,0,0,0,0],busts:0,profit:0,maxBal:310,million:false,tags:{},untag:freshBucket()};}
+function zeros(){var a=[],i;for(i=0;i<MAXSTEPS;i++)a.push(0);return a;}
+function freshBucket(){return {byStep:zeros(),losses:0};}
+function freshStats(){return {real:{n:0,w:0},fake:{n:0,w:0},byStep:zeros(),busts:0,profit:0,maxBal:310,million:false,tags:{},untag:freshBucket()};}
 function defaults(){return {v:1,balance:310,steps:5,startBal:310,betAmt:'big',
   def:{balance:310,steps:5},
   plan:null,step:0,dbl:false,
