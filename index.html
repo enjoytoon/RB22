@@ -156,6 +156,9 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .logBad{color:#ff5f5f;font-weight:900}
 .logFake{color:#8f8fb3;font-size:11px}
 .logBal{margin-left:auto;color:#a9a9cc}
+.logFilt{padding:8px 12px;border-radius:10px;background:#33335a;font-size:11.5px;font-weight:700;color:#c9c9e8;border:2px solid transparent;flex:none}
+.logFilt.on{border-color:#4cc9f0;color:#4cc9f0;background:rgba(76,201,240,.12)}
+.logFilt:active{transform:scale(.95)}
 .stHr{border-top:1px solid #33335a;margin:12px 0}
 #fx{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:50}
 #fx i{position:absolute;top:-14px;border-radius:2px;animation:fall linear forwards}
@@ -245,7 +248,10 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
     <div class="lbl" style="margin-bottom:6px">За мітками</div>
     <div id="stTags"></div>
     <div class="stHr"></div>
-    <div class="lbl" style="margin-bottom:6px">Історія ставок <span class="sub" style="display:inline">останні 50</span></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:8px">
+      <div class="lbl">Історія ставок</div>
+      <button class="logFilt" id="btnLogFilter">без фейкових</button>
+    </div>
     <div id="stLog"></div>
     <button id="btnCloseStats">Готово</button>
   </div>
@@ -305,7 +311,7 @@ function freshStats(){return {real:{n:0,w:0},fake:{n:0,w:0},byStep:zeros(),busts
 function defaults(){return {v:1,balance:310,steps:5,startBal:310,betAmt:'big',
   def:{balance:310,steps:5},
   plan:null,step:0,dbl:false,
-  hist:seedHist(),log:[],
+  hist:seedHist(),log:[],logReal:false,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
   last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
@@ -345,6 +351,7 @@ function load(){
       &&(L.bet==='r'||L.bet==='b')&&typeof L.hit==='boolean'
       &&typeof L.delta==='number'&&typeof L.bal==='number';
   }).slice(0,100);
+  S.logReal=!!d.logReal;
   if(d.phase==='spin')S.phase='spin';
   S.phaseEnd=num(d.phaseEnd,Date.now()+BET_MS);
   if(d.last&&typeof d.last==='object'&&typeof d.last.n==='number'&&d.last.n>=0&&d.last.n<=36)S.last=d.last;
@@ -375,7 +382,14 @@ var revealShown=!S.revealAt||Date.now()>=S.revealAt;
 var pendMillion=false;
 var popAt=0;
 var snap=null; /* що показувати, поки крутиться: старий баланс, щоб не спалити результат */
-var balPreview=false; /* тап по балансу: показати суму, ЯКЩО виграю поточну ставку */
+var balPreview=false; /* тап по балансу: сума-ЦІЛЬ (якщо виграю); тримається, поки не вимкнеш або не виграєш реальну */
+function previewGoal(){
+  if(!balPreview)return 0;
+  var pl=S.plan||planFor(S.balance,S.steps);
+  if(!pl)return 0;
+  var k=Math.min(S.step,pl.steps-1);
+  return S.balance+pl.bets[k]+((S.dbl&&(pl.steps-S.step)>=2)?pl.bets[k+1]:0);
+}
 function inSuspense(){return !!(S.revealAt&&Date.now()<S.revealAt);}
 function pushHist(n){S.hist.unshift(n);if(S.hist.length>HKEEP)S.hist.length=HKEEP;}
 
@@ -403,9 +417,9 @@ function doBet(color,mode,dbl){
     var pv=S.plan||planFor(S.balance,S.steps);
     amount=pv?pv.bets[Math.min(S.step,pv.steps-1)]:0;
   }
-  /* до розіграшу — щоб ні баланс, ні історія не видали результат раніше за цифру */
-  balPreview=false;
-  snap={bal:S.balance,hideHist:1};
+  /* до розіграшу — щоб ні баланс, ні історія не видали результат раніше за цифру.
+     Ціль (якщо увімкнена) фіксуємо і показуємо далі — вона мотивує */
+  snap={bal:S.balance,hideHist:1,goal:previewGoal()};
   var n=rnd37();
   pushHist(n);
   var hit=colorOf(n)===color;
@@ -478,7 +492,7 @@ function skipRound(){
     S.phaseEnd=Math.min(S.phaseEnd,Date.now()+400);
     return;
   }
-  snap={bal:S.balance,hideHist:1};
+  snap={bal:S.balance,hideHist:1,goal:previewGoal()};
   var n=rnd37();
   pushHist(n);
   S.last={n:n,kind:'skip'};
@@ -515,16 +529,15 @@ function catchUp(){
 /* ---- рендер ---- */
 function render(){
   $('stVal').textContent=S.steps;
-  var showBal=(inSuspense()&&snap)?snap.bal:S.balance;
-  var previewOn=false;
-  if(balPreview&&!inSuspense()){
-    var ppl=S.plan||planFor(S.balance,S.steps);
-    if(ppl){
-      var pk=Math.min(S.step,ppl.steps-1);
-      var pw=ppl.bets[pk]+((S.dbl&&(ppl.steps-S.step)>=2)?ppl.bets[pk+1]:0);
-      showBal=S.balance+pw;
-      previewOn=true;
-    }
+  var showBal,previewOn;
+  if(inSuspense()&&snap){
+    /* поки крутиться: ціль (зафіксована до спіну) або старий баланс — без спойлерів */
+    previewOn=!!snap.goal;
+    showBal=previewOn?snap.goal:snap.bal;
+  }else{
+    var g=previewGoal();
+    previewOn=!!g;
+    showBal=previewOn?g:S.balance;
   }
   var balStr=fmt(showBal);
   $('bal').textContent=balStr;
@@ -657,7 +670,10 @@ function revealFx(){
   if(!L||L.kind!=='bet')return;
   popAt=Date.now();
   /* без слів: тільки ✓/✗ на екрані, конфеті на реальному виграші */
-  if(L.mode==='real'&&L.hit)confetti(16);
+  if(L.mode==='real'&&L.hit){
+    confetti(16);
+    balPreview=false; /* ціль досягнуто — вертаємось до звичайного балансу */
+  }
   if(pendMillion){
     pendMillion=false;
     setTimeout(function(){toast('🏆 МІЛЬЙОН! ТИ ЗРОБИВ ЦЕ! 🏆','gold');confetti(140);},1200);
@@ -747,8 +763,11 @@ function syncStats(){
       +'<span class="tagTxt">'+bucketTxt(s.untag)+'</span></div>';
   }
   $('stTags').innerHTML=th||'<div class="stEmpty">Мітка чіпляється до ВСЬОГО сету (до виграшу чи повного програшу) і рахує, з якого разу вгадав</div>';
+  $('btnLogFilter').classList.toggle('on',S.logReal);
   var lh='',lo=(inSuspense()&&snap)?1:0,li,LG;
-  var arr=S.log.slice(lo,lo+50);
+  var base=S.log.slice(lo);
+  if(S.logReal)base=base.filter(function(L){return L.mode==='real';});
+  var arr=base.slice(0,50);
   for(li=0;li<arr.length;li++){
     LG=arr[li];
     lh+='<div class="logRow">'
@@ -761,7 +780,7 @@ function syncStats(){
         :'<span class="logFake">фейк</span>')
       +'</div>';
   }
-  $('stLog').innerHTML=lh||'<div class="stEmpty">Ще нема ставок</div>';
+  $('stLog').innerHTML=lh||'<div class="stEmpty">'+(S.logReal?'Ще нема реальних ставок':'Ще нема ставок')+'</div>';
 }
 function armConfirm(btn,fn){
   if(btn.dataset.armed){
@@ -821,7 +840,7 @@ $('btnQuickReset').addEventListener('click',function(){
   if(now-qrArm<3000){
     qrArm=0;
     S.balance=S.def.balance;S.steps=S.def.steps;S.startBal=S.def.balance;
-    resetLadder();S.last=null;S.dbl=false;S.revealAt=0;revealShown=true;S.tagSel=null;snap=null;
+    resetLadder();S.last=null;S.dbl=false;S.revealAt=0;revealShown=true;S.tagSel=null;snap=null;balPreview=false;
     if(S.balance>S.stats.maxBal)S.stats.maxBal=S.balance;
     save();render();
     toast('↺ Скинуто: '+fmt(S.balance)+' ₴ · '+S.steps+' '+ukr(S.steps,'крок','кроки','кроків'),'good');
@@ -839,6 +858,10 @@ $('btnSettings').addEventListener('click',function(){syncSettings();$('modalSet'
 $('btnCloseSet').addEventListener('click',function(){$('modalSet').classList.add('hidden');});
 $('modalSet').addEventListener('click',function(e){if(e.target===this)this.classList.add('hidden');});
 $('btnStats').addEventListener('click',function(){syncStats();$('modalStats').classList.remove('hidden');});
+$('btnLogFilter').addEventListener('click',function(){
+  S.logReal=!S.logReal;
+  save();syncStats();
+});
 $('btnCloseStats').addEventListener('click',function(){$('modalStats').classList.add('hidden');});
 $('modalStats').addEventListener('click',function(e){if(e.target===this)this.classList.add('hidden');});
 $('sMinus').addEventListener('click',function(){adjustSteps(-1);syncSettings();});
