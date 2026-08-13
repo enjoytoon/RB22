@@ -280,21 +280,27 @@ function $(id){return document.getElementById(id);}
 function pct(w,n){return n?Math.round(w/n*100)+'%':'—';}
 function wordFor(c){return c==='r'?'ЧЕРВОНЕ':(c==='b'?'ЧОРНЕ':'ЗЕРО');}
 
-/* ---- план ставок: як у «Трьох столах» — кратність 5, каскад залишку ---- */
+/* ---- план ставок: каскад залишку; кратність росте з банком, щоб суми були круглі ---- */
+function unitFor(balance){
+  if(balance>=10000)return 100;
+  if(balance>=5000)return 50;
+  return UNIT; /* 5 */
+}
 function planFor(balance,wantSteps){
+  var u=unitFor(balance);
   var n,base,factor,bets,rem,k,j,t,cost;
   for(n=Math.min(MAXSTEPS,Math.max(1,wantSteps));n>=1;n--){
     factor=(1<<n)-1;
-    base=Math.floor(balance/factor/UNIT)*UNIT;
-    if(base<UNIT)continue;
+    base=Math.floor(balance/factor/u)*u;
+    if(base<u)continue;
     bets=[];
     for(k=0;k<n;k++)bets.push(base<<k);
     rem=balance-base*factor;
     for(k=0;k<n;k++){
-      cost=UNIT*((1<<(n-k))-1);
+      cost=u*((1<<(n-k))-1);
       t=Math.floor(rem/cost);
       if(t>0){
-        for(j=k;j<n;j++)bets[j]+=UNIT*t*(1<<(j-k));
+        for(j=k;j<n;j++)bets[j]+=u*t*(1<<(j-k));
         rem-=t*cost;
       }
     }
