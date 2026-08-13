@@ -284,7 +284,13 @@ function wordFor(c){return c==='r'?'ЧЕРВОНЕ':(c==='b'?'ЧОРНЕ':'ЗЕ�
 function unitFor(balance){
   if(balance>=10000)return 100;
   if(balance>=5000)return 50;
+  if(balance>=2500)return 10;
   return UNIT; /* 5 */
+}
+/* підрівнюємо і САМУ суму до кратності — щоб хвостик типу «…10» не висів */
+function snapBal(){
+  var u=unitFor(S.balance);
+  S.balance=Math.floor(S.balance/u)*u;
 }
 function planFor(balance,wantSteps){
   var u=unitFor(balance);
@@ -340,6 +346,8 @@ function load(){
   try{d=JSON.parse(localStorage.getItem(KEY));}catch(e){}
   if(!d||typeof d!=='object')return S;
   S.balance=Math.max(0,Math.round(num(d.balance,310)));
+  var lu=unitFor(S.balance);
+  S.balance=Math.floor(S.balance/lu)*lu; /* підрівнюємо хвостик наявної суми */
   S.steps=Math.min(MAXSTEPS,Math.max(1,Math.round(num(d.steps,5))));
   S.betAmt=(d.betAmt==='small'||d.betAmt==='off')?d.betAmt:'big';
   if(d.def&&typeof d.def==='object'){
@@ -432,10 +440,10 @@ function doBet(color,mode,dbl){
   var delta=0,bust=false,stepFrom=S.step,stepsTotal=S.plan?S.plan.steps:S.steps;
   if(mode==='real'){
     if(hit){
-      delta=amount;S.balance+=amount;
+      delta=amount;S.balance+=amount;snapBal();
       S.plan=null;S.step=0;
     }else{
-      delta=-amount;S.balance-=amount;
+      delta=-amount;S.balance-=amount;snapBal();
       S.step+=double?2:1;
       if(S.step>=S.plan.steps){bust=true;S.plan=null;S.step=0;}
     }
