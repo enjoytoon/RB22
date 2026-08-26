@@ -64,7 +64,13 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .dotsBig i:nth-child(3){animation-delay:.56s}
 @keyframes dotp{0%,100%{opacity:.25}50%{opacity:1}}
 #histRow{display:flex;gap:3px;margin-top:8px}
-.hq{flex:1;aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;min-width:0}
+.hcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.hq{width:100%;aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;min-width:0}
+.hm{height:15px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;line-height:1}
+.hm.rw{background:#0d7a52;color:#fff}
+.hm.rl{background:#8a1220;color:#fff}
+.hm.fw{color:#2dd4a7}
+.hm.fl{color:#ff6f6f}
 .hq.r{background:#c01111}
 .hq.b{background:#111116;border:1px solid #3a3a44}
 .hq.g{background:#0d8a49}
@@ -100,7 +106,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .betSub{display:block;font-size:10.5px;font-weight:800;opacity:.8;letter-spacing:1px;margin-top:3px}
 .betSub:empty{display:none}
 #betRow.small .betBtn{font-size:14px;letter-spacing:1px}
-#tagRow{margin-top:10px;display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap}
+#tagRow{margin-top:24px;padding-top:12px;border-top:1px solid #26264a;display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap}
 .tagLbl{font-size:11px;color:#8f8fb3;letter-spacing:.5px}
 .tag{padding:9px 11px;border-radius:11px;background:#252547;color:#c9c9e8;font-size:14px;font-weight:800;border:2px solid transparent;letter-spacing:.5px}
 .tag.on{border-color:#ffd166;color:#ffd166;background:rgba(255,209,102,.12)}
@@ -120,7 +126,9 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 #toast.info{background:#33335a}
 .modal{position:fixed;inset:0;z-index:40;background:rgba(8,8,18,.66);display:flex;align-items:flex-end;justify-content:center;opacity:1;transition:opacity .2s}
 .modal.hidden{opacity:0;pointer-events:none}
-.sheet{width:100%;max-width:440px;max-height:88vh;overflow-y:auto;background:#23233d;border-radius:22px 22px 0 0;padding:20px 18px calc(env(safe-area-inset-bottom,0px) + 18px);transition:transform .25s}
+.sheet{position:relative;width:100%;max-width:440px;max-height:88vh;overflow-y:auto;background:#23233d;border-radius:22px 22px 0 0;padding:20px 18px calc(env(safe-area-inset-bottom,0px) + 18px);transition:transform .25s}
+.xBtn{position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:11px;background:#33335a;color:#c9c9e8;font-size:15px;font-weight:700;z-index:2}
+.xBtn:active{transform:scale(.92)}
 .modal.hidden .sheet{transform:translateY(40px)}
 .sheet h2{font-size:18px;margin-bottom:12px;text-align:center}
 .row{display:flex;align-items:center;justify-content:space-between;margin:12px 0;gap:10px}
@@ -227,8 +235,6 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
         <button data-v="off">Без</button>
       </div>
     </div>
-    <button class="neut" id="btnSaveDef">&#128190; Зберегти поточне як дефолт</button>
-    <div class="defLine" id="defLine"></div>
     <div class="btnRow">
       <button class="dngr" id="btnResetStats">Скинути статистику</button>
       <button class="dngr" id="btnResetAll">Скинути все</button>
@@ -239,6 +245,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 
 <div id="modalStats" class="modal hidden">
   <div class="sheet">
+    <button class="xBtn" id="btnCloseStatsTop">✕</button>
     <h2>Статистика</h2>
     <div id="stTop"></div>
     <div class="stHr"></div>
@@ -320,10 +327,11 @@ function seedHist(){var a=[],i;for(i=0;i<HSHOW;i++)a.push(rnd37());return a;}
 function zeros(){var a=[],i;for(i=0;i<MAXSTEPS;i++)a.push(0);return a;}
 function freshBucket(){return {byStep:zeros(),losses:0};}
 function freshStats(){return {real:{n:0,w:0},fake:{n:0,w:0},byStep:zeros(),busts:0,profit:0,maxBal:310,million:false,tags:{},untag:freshBucket()};}
+function seedMarks(){var a=[],i;for(i=0;i<HSHOW;i++)a.push(null);return a;}
 function defaults(){return {v:1,balance:310,steps:5,startBal:310,betAmt:'big',
   def:{balance:310,steps:5},
   plan:null,step:0,dbl:false,
-  hist:seedHist(),log:[],logReal:false,
+  hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
   last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
@@ -360,6 +368,13 @@ function load(){
   if(!S.plan||S.step>=S.plan.steps){S.plan=null;S.step=0;}
   S.dbl=!!d.dbl;
   if(Array.isArray(d.hist)&&d.hist.length>0&&d.hist.every(function(x){return typeof x==='number'&&x>=0&&x<=36;}))S.hist=d.hist.slice(0,HKEEP);
+  S.histM=[];
+  if(Array.isArray(d.histM)){
+    S.histM=d.histM.slice(0,S.hist.length).map(function(x){
+      return (x&&typeof x==='object'&&typeof x.hit==='boolean')?{hit:x.hit,real:!!x.real}:null;
+    });
+  }
+  while(S.histM.length<S.hist.length)S.histM.push(null);
   if(Array.isArray(d.log))S.log=d.log.filter(function(L){
     return L&&typeof L==='object'&&typeof L.n==='number'&&L.n>=0&&L.n<=36
       &&(L.bet==='r'||L.bet==='b')&&typeof L.hit==='boolean'
@@ -405,7 +420,12 @@ function previewGoal(){
   return S.balance+pl.bets[k]+((S.dbl&&(pl.steps-S.step)>=2)?pl.bets[k+1]:0);
 }
 function inSuspense(){return !!(S.revealAt&&Date.now()<S.revealAt);}
-function pushHist(n){S.hist.unshift(n);if(S.hist.length>HKEEP)S.hist.length=HKEEP;}
+function pushHist(n,mark){
+  S.hist.unshift(n);
+  S.histM.unshift(mark||null);
+  if(S.hist.length>HKEEP)S.hist.length=HKEEP;
+  if(S.histM.length>HKEEP)S.histM.length=HKEEP;
+}
 
 /* ---- ставка: миттєвий результат; мітка (tagSel) живе весь сет ---- */
 function setBucket(){
@@ -435,8 +455,8 @@ function doBet(color,mode,dbl){
      Ціль (якщо увімкнена) фіксуємо і показуємо далі — вона мотивує */
   snap={bal:S.balance,hideHist:1,goal:previewGoal()};
   var n=rnd37();
-  pushHist(n);
   var hit=colorOf(n)===color;
+  pushHist(n,{hit:hit,real:mode==='real'});
   var delta=0,bust=false,stepFrom=S.step,stepsTotal=S.plan?S.plan.steps:S.steps;
   if(mode==='real'){
     if(hit){
@@ -593,10 +613,16 @@ function renderBig(){
     +'<div class="bres">'+res+'</div>';
 }
 function renderHist(){
-  /* поки крутиться — свіже число в історії не показуємо, щоб не спалити результат */
+  /* поки крутиться — свіже число (і його позначку) не показуємо, щоб не спалити результат */
   var off=(inSuspense()&&snap&&snap.hideHist)?snap.hideHist:0;
-  var html='',hh=S.hist.slice(off,off+HSHOW),i;
-  for(i=0;i<hh.length;i++)html+='<span class="hq '+colorOf(hh[i])+'">'+hh[i]+'</span>';
+  var html='',hh=S.hist.slice(off,off+HSHOW),mm=S.histM.slice(off,off+HSHOW),i,m,mk;
+  for(i=0;i<hh.length;i++){
+    m=mm[i]||null;
+    if(!m)mk='<span class="hm"></span>';
+    else if(m.real)mk='<span class="hm '+(m.hit?'rw':'rl')+'">'+(m.hit?'✓':'✗')+'</span>';
+    else mk='<span class="hm '+(m.hit?'fw':'fl')+'">'+(m.hit?'✓':'✗')+'</span>';
+    html+='<div class="hcol"><span class="hq '+colorOf(hh[i])+'">'+hh[i]+'</span>'+mk+'</div>';
+  }
   $('histRow').innerHTML=html;
 }
 function renderLadder(){
@@ -730,8 +756,6 @@ function syncSettings(){
     ?('План на зараз: '+pl.bets.map(fmt).join(' → ')+'<br>разом '+fmt(pl.committed)+' ₴ · залишок '+fmt(pl.leftover)+' ₴'
       +(pl.reduced?' · <span class="warn">вистачає лише на '+pl.steps+' '+ukr(pl.steps,'крок','кроки','кроків')+'</span>':''))
     :'Замало грошей навіть на одну ставку 😢';
-  $('defLine').textContent='Дефолт: '+fmt(S.def.balance)+' ₴ · '+S.def.steps+' '
-    +ukr(S.def.steps,'крок','кроки','кроків')+' — кнопка ↺ вгорі повертає до цього';
 }
 function syncStats(){
   var s=S.stats,k;
@@ -853,21 +877,17 @@ $('btnQuickReset').addEventListener('click',function(){
   var now=Date.now();
   if(now-qrArm<3000){
     qrArm=0;
-    S.balance=S.def.balance;S.steps=S.def.steps;S.startBal=S.def.balance;
+    S.balance=S.def.balance;S.startBal=S.def.balance;
     resetLadder();S.last=null;S.dbl=false;S.revealAt=0;revealShown=true;S.tagSel=null;snap=null;balPreview=false;
     if(S.balance>S.stats.maxBal)S.stats.maxBal=S.balance;
     save();render();
-    toast('↺ Скинуто: '+fmt(S.balance)+' ₴ · '+S.steps+' '+ukr(S.steps,'крок','кроки','кроків'),'good');
+    toast('↺ Скинуто: '+fmt(S.balance)+' ₴ · кроки як були ('+S.steps+')','good');
   }else{
     qrArm=now;
     toast('Тапни ↺ ще раз — поверну дефолт ('+fmt(S.def.balance)+' ₴)','info');
   }
 });
-$('btnSaveDef').addEventListener('click',function(){
-  S.def={balance:310,steps:S.steps};
-  save();syncSettings();
-  toast('Дефолт збережено: '+S.def.steps+' '+ukr(S.def.steps,'крок','кроки','кроків')+' (рахунок завжди 310 ₴)','good');
-});
+$('btnCloseStatsTop').addEventListener('click',function(){$('modalStats').classList.add('hidden');});
 $('btnSettings').addEventListener('click',function(){syncSettings();$('modalSet').classList.remove('hidden');});
 $('btnCloseSet').addEventListener('click',function(){$('modalSet').classList.add('hidden');});
 $('modalSet').addEventListener('click',function(e){if(e.target===this)this.classList.add('hidden');});
