@@ -98,6 +98,9 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .dot.r{background:#c01111}
 .dot.b{background:#0a0a0e;border:1px solid #55555f}
 .fakeSub{display:block;font-size:9px;font-weight:700;opacity:.65;letter-spacing:1.5px;margin-top:2px}
+#btnGoal{width:100%;margin-top:8px;padding:12px;border-radius:12px;background:#20203c;border:2px solid #31315a;color:#c9c9e8;font-size:13.5px;font-weight:800;letter-spacing:.5px}
+#btnGoal.on{border-color:#2dd4a7;color:#2dd4a7;background:rgba(45,212,167,.1)}
+#btnGoal:active{transform:scale(.97)}
 #betRow{display:flex;gap:10px;margin-top:10px}
 .betBtn{flex:1;height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;font-size:19px;font-weight:900;letter-spacing:1.5px;color:#fff;box-shadow:0 5px 16px rgba(0,0,0,.35)}
 .betBtn:active{transform:scale(.97)}
@@ -213,6 +216,8 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
     <button class="fakeBtn" id="btnFakeRed"><span class="dot r"></span>ЧЕРВОНЕ<span class="fakeSub">ФЕЙК</span></button>
     <button class="fakeBtn" id="btnFakeBlack"><span class="dot b"></span>ЧОРНЕ<span class="fakeSub">ФЕЙК</span></button>
   </div>
+
+  <button id="btnGoal">Показати суму-ціль</button>
 
   <div id="tagRow"></div>
 </div>
@@ -577,6 +582,8 @@ function render(){
   $('bal').textContent=balStr;
   $('bal').classList.toggle('long',balStr.length>=7); /* довгі суми — трохи менший шрифт, щоб в один рядок */
   $('bal').classList.toggle('prev',previewOn);
+  $('btnGoal').classList.toggle('on',previewOn);
+  $('btnGoal').textContent=previewOn?('Ціль: '+balStr+' ₴'):'Показати суму-ціль';
   if(previewOn){
     $('rec').innerHTML='<b class="ok">якщо виграю ставку</b>';
   }else{
@@ -846,6 +853,11 @@ $('btnStop').addEventListener('click',stopSet);
 $('stMinus').addEventListener('click',function(){adjustSteps(-1);});
 $('stPlus').addEventListener('click',function(){adjustSteps(1);});
 $('balRow').addEventListener('click',function(){
+  if(inSuspense())return;
+  balPreview=!balPreview;
+  render();
+});
+$('btnGoal').addEventListener('click',function(){
   if(inSuspense())return;
   balPreview=!balPreview;
   render();
