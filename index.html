@@ -187,7 +187,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
     <button class="icoBtn" id="btnSettings" aria-label="Налаштування">&#x2699;&#xFE0E;</button>
   </header>
 
-  <div id="balRow"><b id="bal">310</b><span class="cur">₴</span><span id="rec"></span></div>
+  <div id="balRow"><b id="bal">10 000</b><span class="cur">₴</span><span id="rec"></span></div>
 
   <div id="phaseBar">
     <div id="phRow"><span id="phLbl">Ставки відкрито</span><span id="phSec">15с</span></div>
@@ -326,10 +326,10 @@ function planFor(balance,wantSteps){
 function seedHist(){var a=[],i;for(i=0;i<HSHOW;i++)a.push(rnd37());return a;}
 function zeros(){var a=[],i;for(i=0;i<MAXSTEPS;i++)a.push(0);return a;}
 function freshBucket(){return {byStep:zeros(),losses:0};}
-function freshStats(){return {real:{n:0,w:0},fake:{n:0,w:0},byStep:zeros(),busts:0,profit:0,maxBal:310,million:false,tags:{},untag:freshBucket()};}
+function freshStats(){return {real:{n:0,w:0},fake:{n:0,w:0},byStep:zeros(),busts:0,profit:0,maxBal:10000,million:false,tags:{},untag:freshBucket()};}
 function seedMarks(){var a=[],i;for(i=0;i<HSHOW;i++)a.push(null);return a;}
-function defaults(){return {v:1,balance:310,steps:5,startBal:310,betAmt:'big',
-  def:{balance:310,steps:5},
+function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'big',
+  def:{balance:10000,steps:5},
   plan:null,step:0,dbl:false,
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
@@ -353,7 +353,7 @@ function load(){
   var d=null,S=defaults();
   try{d=JSON.parse(localStorage.getItem(KEY));}catch(e){}
   if(!d||typeof d!=='object')return S;
-  S.balance=Math.max(0,Math.round(num(d.balance,310)));
+  S.balance=Math.max(0,Math.round(num(d.balance,10000)));
   var lu=unitFor(S.balance);
   S.balance=Math.floor(S.balance/lu)*lu; /* підрівнюємо хвостик наявної суми */
   S.steps=Math.min(MAXSTEPS,Math.max(1,Math.round(num(d.steps,5))));
@@ -361,8 +361,8 @@ function load(){
   if(d.def&&typeof d.def==='object'){
     S.def.steps=Math.min(MAXSTEPS,Math.max(1,Math.round(num(d.def.steps,5))));
   }
-  S.def.balance=310; /* стандарт 310 і крапка — суму міняє тільки гра */
-  S.startBal=310;
+  S.def.balance=10000; /* стандарт 10 000 і крапка — суму міняє тільки гра */
+  S.startBal=10000;
   if(validPlan(d.plan))S.plan=d.plan;
   S.step=Math.max(0,Math.round(num(d.step,0)));
   if(!S.plan||S.step>=S.plan.steps){S.plan=null;S.step=0;}
@@ -441,7 +441,7 @@ function doBet(color,mode,dbl){
   if(mode==='real'){
     if(!S.plan){
       var pl=planFor(S.balance,S.steps);
-      if(!pl){toast('Замало грошей — тапни ↺ двічі, почнеш з 310 ₴','bad');return;}
+      if(!pl){toast('Замало грошей — тапни ↺ двічі, почнеш з 10 000 ₴','bad');return;}
       S.plan=pl;S.step=0;
     }
     S.dbl=false;
@@ -640,7 +640,7 @@ function renderLadder(){
         +(pl.reduced?' · <span class="warn">'+pl.steps+' '+ukr(pl.steps,'крок','кроки','кроків')+'</span>':'');
       l2='План: '+pl.bets.map(fmt).join(' → ');
     }else{
-      l1='<span class="warn">Замало грошей — тапни ↺ двічі, почнеш знову з 310 ₴</span>';
+      l1='<span class="warn">Замало грошей — тапни ↺ двічі, почнеш знову з 10 000 ₴</span>';
       l2='Фейкові ставки можна завжди';
     }
   }
@@ -917,7 +917,7 @@ $('btnResetAll').addEventListener('click',function(){
     revealShown=true;
     snap=null;
     save();render();syncSettings();
-    toast('Гру скинуто — рахунок 310 ₴','info');
+    toast('Гру скинуто — рахунок 10 000 ₴','info');
   });
 });
 document.addEventListener('gesturestart',function(e){e.preventDefault();});
