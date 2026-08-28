@@ -131,6 +131,8 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .sheet{position:relative;width:100%;max-width:440px;max-height:88vh;overflow-y:auto;background:#23233d;border-radius:22px 22px 0 0;padding:20px 18px calc(env(safe-area-inset-bottom,0px) + 18px);transition:transform .25s}
 .xBtn{position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:11px;background:#33335a;color:#c9c9e8;font-size:15px;font-weight:700;z-index:2}
 .xBtn:active{transform:scale(.92)}
+#btnResetStatsTop{position:absolute;top:14px;left:14px;height:36px;padding:0 12px;border-radius:11px;background:none;border:1.5px solid #c8102e;color:#ff6f6f;font-size:12px;font-weight:700;z-index:2}
+#btnResetStatsTop:active{transform:scale(.95)}
 .modal.hidden .sheet{transform:translateY(40px)}
 .sheet h2{font-size:18px;margin-bottom:12px;text-align:center}
 .row{display:flex;align-items:center;justify-content:space-between;margin:12px 0;gap:10px}
@@ -201,7 +203,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
   <div id="ladder"></div>
 
   <div id="actRow">
-    <button id="btnDbl">×2 СТАВКА<small id="dblSub"></small></button>
+    <button id="btnDbl">ЧЕРЕЗ КРОК<small id="dblSub"></small></button>
     <button id="btnStop">Стоп сет</button>
     <button id="btnSkip">Пропустити ▸▸</button>
   </div>
@@ -250,7 +252,19 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 <div id="modalStats" class="modal hidden">
   <div class="sheet">
     <button class="xBtn" id="btnCloseStatsTop">✕</button>
+    <button id="btnResetStatsTop">Скинути</button>
     <h2>Статистика</h2>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px">
+      <div class="seg" id="segMode">
+        <button data-v="all">Всі</button>
+        <button data-v="real">Реальні</button>
+        <button data-v="fake">Фейк</button>
+      </div>
+      <div class="seg" id="segPeriod">
+        <button data-v="all">Весь час</button>
+        <button data-v="game">Ця гра</button>
+      </div>
+    </div>
     <div id="stTop"></div>
     <div class="stHr"></div>
     <div class="lbl" style="margin-bottom:6px">З якого разу вгадував <span class="sub" style="display:inline">💰 тільки реальні</span></div>
@@ -336,6 +350,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'big
   def:{balance:10000,steps:5},
   plan:null,step:0,dbl:false,
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
+  game:freshStats(),statMode:'all',statPeriod:'all',
   phase:'bet',phaseEnd:Date.now()+BET_MS,
   last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
@@ -390,23 +405,30 @@ function load(){
   if(d.last&&typeof d.last==='object'&&typeof d.last.n==='number'&&d.last.n>=0&&d.last.n<=36)S.last=d.last;
   S.revealAt=num(d.revealAt,0);
   S.tagSel=TAGS.indexOf(d.tagSel)>=0?d.tagSel:null;
-  if(d.stats&&typeof d.stats==='object'){
-    var st=S.stats;
-    if(validWL(d.stats.real))st.real={n:Math.round(d.stats.real.n),w:Math.round(d.stats.real.w)};
-    if(validWL(d.stats.fake))st.fake={n:Math.round(d.stats.fake.n),w:Math.round(d.stats.fake.w)};
-    if(Array.isArray(d.stats.byStep))for(var bi=0;bi<MAXSTEPS;bi++)st.byStep[bi]=Math.max(0,Math.round(num(d.stats.byStep[bi],0)));
-    st.busts=Math.max(0,Math.round(num(d.stats.busts,0)));
-    st.profit=num(d.stats.profit,0);
-    st.maxBal=Math.max(S.balance,num(d.stats.maxBal,S.balance));
-    st.million=!!d.stats.million;
-    if(validBucket(d.stats.untag))st.untag=copyBucket(d.stats.untag);
-    if(d.stats.tags&&typeof d.stats.tags==='object'){
-      TAGS.forEach(function(tg){
-        if(validBucket(d.stats.tags[tg]))st.tags[tg]=copyBucket(d.stats.tags[tg]);
-      });
-    }
-  }
+  S.stats=readStats(d.stats,S.balance);
+  S.game=readStats(d.game,S.balance);
+  S.statMode=(d.statMode==='real'||d.statMode==='fake')?d.statMode:'all';
+  S.statPeriod=d.statPeriod==='game'?'game':'all';
   return S;
+}
+function readStats(src,bal){
+  var st=freshStats(),bi;
+  st.maxBal=Math.max(st.maxBal,bal);
+  if(!src||typeof src!=='object')return st;
+  if(validWL(src.real))st.real={n:Math.round(src.real.n),w:Math.round(src.real.w)};
+  if(validWL(src.fake))st.fake={n:Math.round(src.fake.n),w:Math.round(src.fake.w)};
+  if(Array.isArray(src.byStep))for(bi=0;bi<MAXSTEPS;bi++)st.byStep[bi]=Math.max(0,Math.round(num(src.byStep[bi],0)));
+  st.busts=Math.max(0,Math.round(num(src.busts,0)));
+  st.profit=num(src.profit,0);
+  st.maxBal=Math.max(bal,num(src.maxBal,bal));
+  st.million=!!src.million;
+  if(validBucket(src.untag))st.untag=copyBucket(src.untag);
+  if(src.tags&&typeof src.tags==='object'){
+    TAGS.forEach(function(tg){
+      if(validBucket(src.tags[tg]))st.tags[tg]=copyBucket(src.tags[tg]);
+    });
+  }
+  return st;
 }
 var S=load();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
@@ -421,7 +443,8 @@ function previewGoal(){
   var pl=S.plan||planFor(S.balance,S.steps);
   if(!pl)return 0;
   var k=Math.min(S.step,pl.steps-1);
-  return S.balance+pl.bets[k]+((S.dbl&&(pl.steps-S.step)>=2)?pl.bets[k+1]:0);
+  var eff=(S.dbl&&(pl.steps-S.step)>=2)?k+1:k; /* «через крок» — грає наступна ставка */
+  return S.balance+pl.bets[eff];
 }
 function inSuspense(){return !!(S.revealAt&&Date.now()<S.revealAt);}
 function pushHist(n,mark){
@@ -432,16 +455,16 @@ function pushHist(n,mark){
 }
 
 /* ---- ставка: миттєвий результат; мітка (tagSel) живе весь сет ---- */
-function setBucket(){
+function bucketIn(st){
   if(S.tagSel){
-    var g=S.stats.tags[S.tagSel];
-    if(!g)g=S.stats.tags[S.tagSel]=freshBucket();
+    var g=st.tags[S.tagSel];
+    if(!g)g=st.tags[S.tagSel]=freshBucket();
     return g;
   }
-  return S.stats.untag;
+  return st.untag;
 }
-function doBet(color,mode,dbl){
-  var amount=0,double=false;
+function doBet(color,mode,skpArm){
+  var amount=0,skp=false,eff=S.step;
   if(mode==='real'){
     if(!S.plan){
       var pl=planFor(S.balance,S.steps);
@@ -449,8 +472,10 @@ function doBet(color,mode,dbl){
       S.plan=pl;S.step=0;
     }
     S.dbl=false;
-    double=!!dbl&&(S.plan.steps-S.step)>=2;
-    amount=S.plan.bets[S.step]+(double?S.plan.bets[S.step+1]:0);
+    /* «через крок»: пропускаємо поточну ставку і граємо одразу наступну (сет стає на крок коротший) */
+    skp=!!skpArm&&(S.plan.steps-S.step)>=2;
+    eff=S.step+(skp?1:0);
+    amount=S.plan.bets[eff];
   }else{
     var pv=S.plan||planFor(S.balance,S.steps);
     amount=pv?pv.bets[Math.min(S.step,pv.steps-1)]:0;
@@ -461,40 +486,44 @@ function doBet(color,mode,dbl){
   var n=rnd37();
   var hit=colorOf(n)===color;
   pushHist(n,{hit:hit,real:mode==='real'});
-  var delta=0,bust=false,stepFrom=S.step,stepsTotal=S.plan?S.plan.steps:S.steps;
+  var delta=0,bust=false,stepsTotal=S.plan?S.plan.steps:S.steps;
+  var T=[S.stats,S.game],ti,st;
   if(mode==='real'){
     if(hit){
       delta=amount;S.balance+=amount;snapBal();
       S.plan=null;S.step=0;
     }else{
       delta=-amount;S.balance-=amount;snapBal();
-      S.step+=double?2:1;
+      S.step=eff+1;
       if(S.step>=S.plan.steps){bust=true;S.plan=null;S.step=0;}
     }
-    S.stats.real.n++;
-    if(hit){
-      /* сет завершено виграшем: мітка сету рахує, з якого разу вгадав */
-      S.stats.real.w++;
-      S.stats.byStep[Math.min(stepFrom,MAXSTEPS-1)]++;
-      setBucket().byStep[Math.min(stepFrom,MAXSTEPS-1)]++;
-      S.tagSel=null;
-    }else if(bust){
-      /* сет програно повністю: мітці сету пишеться програш */
-      S.stats.busts++;
-      setBucket().losses++;
-      S.tagSel=null;
+    for(ti=0;ti<T.length;ti++){
+      st=T[ti];
+      st.real.n++;
+      if(hit){
+        /* сет завершено виграшем: мітка сету рахує, з якого разу вгадав */
+        st.real.w++;
+        st.byStep[Math.min(eff,MAXSTEPS-1)]++;
+        bucketIn(st).byStep[Math.min(eff,MAXSTEPS-1)]++;
+      }else if(bust){
+        /* сет програно повністю: мітці сету пишеться програш */
+        st.busts++;
+        bucketIn(st).losses++;
+      }
+      st.profit+=delta;
     }
-    S.stats.profit+=delta;
+    if(hit||bust)S.tagSel=null;
     if(S.balance>S.stats.maxBal)S.stats.maxBal=S.balance;
+    if(S.balance>S.game.maxBal)S.game.maxBal=S.balance;
     if(S.balance>=1000000&&!S.stats.million){S.stats.million=true;pendMillion=true;}
   }else{
-    S.stats.fake.n++;if(hit)S.stats.fake.w++;
+    for(ti=0;ti<T.length;ti++){st=T[ti];st.fake.n++;if(hit)st.fake.w++;}
   }
   S.log.unshift({n:n,bet:color,mode:mode,hit:hit,delta:mode==='real'?delta:0,bal:S.balance});
   if(S.log.length>100)S.log.length=100;
   S.last={n:n,kind:'bet',betColor:color,mode:mode,hit:hit,amount:amount,delta:delta,
-    bust:bust,double:double,stepFrom:stepFrom+1,
-    stepDone:stepFrom+(double?2:1),stepsTotal:stepsTotal};
+    bust:bust,skp:skp,stepFrom:eff+1,
+    stepDone:eff+1,stepsTotal:stepsTotal};
   S.revealAt=Date.now()+SUSPENSE;
   revealShown=false;
   S.phase='bet';
@@ -660,7 +689,7 @@ function renderControls(){
   /* колір видно з самої кнопки — великими пишемо суму ставки */
   var amt,sub;
   if(!pl){amt='—';sub='нема грошей';}
-  else if(S.dbl){amt=fmt(pl.bets[k]+pl.bets[k+1])+' ₴';sub='×2';}
+  else if(S.dbl){amt=fmt(pl.bets[k+1])+' ₴';sub='через крок';}
   else{amt=fmt(pl.bets[k])+' ₴';sub='';}
   if(S.betAmt==='off'){
     /* суму сховано — повертаємо слова, колір і так видно з кнопки */
@@ -680,8 +709,8 @@ function renderControls(){
   $('dblSub').textContent=!canDbl
     ?'недоступно'
     :(S.dbl
-      ?(fmt(pl.bets[S.step])+'+'+fmt(pl.bets[S.step+1])+' = '+fmt(pl.bets[S.step]+pl.bets[S.step+1])+' ₴')
-      :'два кроки за раз');
+      ?('ставлю одразу '+fmt(pl.bets[S.step+1])+' ₴')
+      :'пропустити цю ставку');
 }
 function renderTags(){
   var html='<span class="tagLbl">Мітка:</span>',i;
@@ -763,26 +792,44 @@ function syncSettings(){
     :'Замало грошей навіть на одну ставку 😢';
 }
 function syncStats(){
-  var s=S.stats,k;
+  /* перемикачі: Всі/Реальні/Фейк і Весь час/Ця гра (від останнього ↺) */
+  var sm=$('segMode').children,sp=$('segPeriod').children,zi;
+  for(zi=0;zi<sm.length;zi++)sm[zi].classList.toggle('on',sm[zi].getAttribute('data-v')===S.statMode);
+  for(zi=0;zi<sp.length;zi++)sp[zi].classList.toggle('on',sp[zi].getAttribute('data-v')===S.statPeriod);
+  var s=(S.statPeriod==='game')?S.game:S.stats,k;
   var totN=s.real.n+s.fake.n,totW=s.real.w+s.fake.w;
   var setW=0;
   for(k=0;k<MAXSTEPS;k++)setW+=s.byStep[k];
-  $('stTop').innerHTML=
-    '<div class="stBig">Вгадувань усього: <b>'+totN+'</b> · вгадав: <b class="ok">'+totW+'</b> · <b>'+pct(totW,totN)+'</b></div>'
-   +'<div class="stBig">💰 Реальні: <b>'+s.real.n+'</b> · вгадав <b class="ok">'+s.real.w+'</b> ('+pct(s.real.w,s.real.n)+')'
-   +' · разом: <b class="'+(s.profit>=0?'ok':'bad')+'">'+(s.profit>=0?'+':'')+fmt(s.profit)+' ₴</b></div>'
-   +'<div class="stBig">🎈 Фейкові: <b>'+s.fake.n+'</b> · вгадав <b class="ok">'+s.fake.w+'</b> ('+pct(s.fake.w,s.fake.n)+')</div>'
-   +'<div class="stBig">Сетів: вгадано <b class="ok">'+setW+'</b> · програно повністю <b class="bad">'+s.busts+'</b></div>'
-   +'<div class="stBig">Рекорд рахунку: <b>'+fmt(s.maxBal)+' ₴</b></div>';
-  var sr='',mx=1,si;
-  for(si=0;si<MAXSTEPS;si++)if(s.byStep[si]>mx)mx=s.byStep[si];
-  for(si=0;si<MAXSTEPS;si++){
-    if(s.byStep[si]>0||si<S.steps){
-      sr+='<div class="stRow"><span class="stL">з '+(si+1)+'-го разу</span>'
-        +'<span class="stBar"><i style="width:'+(s.byStep[si]/mx*100)+'%"></i></span><b>'+s.byStep[si]+'</b></div>';
-    }
+  var top='';
+  if(S.statMode==='all'){
+    top+='<div class="stBig">Вгадувань усього: <b>'+totN+'</b> · вгадав: <b class="ok">'+totW+'</b> · <b>'+pct(totW,totN)+'</b></div>';
   }
-  $('stSteps').innerHTML=sr||'<div class="stEmpty">Ще нема виграшів</div>';
+  if(S.statMode!=='fake'){
+    top+='<div class="stBig">💰 Реальні: <b>'+s.real.n+'</b> · вгадав <b class="ok">'+s.real.w+'</b> ('+pct(s.real.w,s.real.n)+')'
+      +' · разом: <b class="'+(s.profit>=0?'ok':'bad')+'">'+(s.profit>=0?'+':'')+fmt(s.profit)+' ₴</b></div>'
+      +'<div class="stBig">Сетів: вгадано <b class="ok">'+setW+'</b> · програно повністю <b class="bad">'+s.busts+'</b></div>';
+  }
+  if(S.statMode!=='real'){
+    top+='<div class="stBig">🎈 Фейкові: <b>'+s.fake.n+'</b> · вгадав <b class="ok">'+s.fake.w+'</b> ('+pct(s.fake.w,s.fake.n)+')</div>';
+  }
+  if(S.statPeriod==='all'&&S.statMode!=='fake'){
+    top+='<div class="stBig">Рекорд рахунку: <b>'+fmt(S.stats.maxBal)+' ₴</b></div>';
+  }
+  $('stTop').innerHTML=top;
+  var sr='',mx=1,si;
+  if(S.statMode!=='fake'){
+    for(si=0;si<MAXSTEPS;si++)if(s.byStep[si]>mx)mx=s.byStep[si];
+    for(si=0;si<MAXSTEPS;si++){
+      if(s.byStep[si]>0||si<S.steps){
+        sr+='<div class="stRow"><span class="stL">з '+(si+1)+'-го разу</span>'
+          +'<span class="stBar"><i style="width:'+(s.byStep[si]/mx*100)+'%"></i></span><b>'+s.byStep[si]+'</b></div>';
+      }
+    }
+    if(!sr)sr='<div class="stEmpty">Ще нема виграшів</div>';
+  }else{
+    sr='<div class="stEmpty">— тільки для реальних —</div>';
+  }
+  $('stSteps').innerHTML=sr;
   function bucketTxt(g){
     var parts=[],j;
     for(j=0;j<MAXSTEPS;j++)if(g.byStep[j]>0)parts.push('з '+(j+1)+'-го — <b class="ok">'+g.byStep[j]+'</b>');
@@ -795,17 +842,22 @@ function syncStats(){
     return false;
   }
   var th='';
-  TAGS.forEach(function(tg){
-    var g=s.tags[tg];
-    if(!hasData(g))return;
-    th+='<div class="stRow"><b class="tagChip">'+tg+'</b>'
-      +'<span class="tagTxt">'+bucketTxt(g)+'</span></div>';
-  });
-  if(hasData(s.untag)){
-    th+='<div class="stRow"><b class="tagChip">без</b>'
-      +'<span class="tagTxt">'+bucketTxt(s.untag)+'</span></div>';
+  if(S.statMode!=='fake'){
+    TAGS.forEach(function(tg){
+      var g=s.tags[tg];
+      if(!hasData(g))return;
+      th+='<div class="stRow"><b class="tagChip">'+tg+'</b>'
+        +'<span class="tagTxt">'+bucketTxt(g)+'</span></div>';
+    });
+    if(hasData(s.untag)){
+      th+='<div class="stRow"><b class="tagChip">без</b>'
+        +'<span class="tagTxt">'+bucketTxt(s.untag)+'</span></div>';
+    }
+    if(!th)th='<div class="stEmpty">Мітка чіпляється до ВСЬОГО сету (до виграшу чи повного програшу) і рахує, з якого разу вгадав</div>';
+  }else{
+    th='<div class="stEmpty">— тільки для реальних —</div>';
   }
-  $('stTags').innerHTML=th||'<div class="stEmpty">Мітка чіпляється до ВСЬОГО сету (до виграшу чи повного програшу) і рахує, з якого разу вгадав</div>';
+  $('stTags').innerHTML=th;
   $('btnLogFilter').classList.toggle('on',S.logReal);
   var lh='',lo=(inSuspense()&&snap)?1:0,li,LG;
   var base=S.log.slice(lo);
@@ -862,7 +914,7 @@ $('btnGoal').addEventListener('click',function(){
 });
 $('btnDbl').addEventListener('click',function(){
   var pl=S.plan||planFor(S.balance,S.steps);
-  if(!pl||(pl.steps-S.step)<2){toast('×2 недоступно — це останній крок драбини','info');return;}
+  if(!pl||(pl.steps-S.step)<2){toast('«Через крок» недоступно — це останній крок драбини','info');return;}
   S.dbl=!S.dbl;
   save();renderControls();
 });
@@ -889,6 +941,7 @@ $('btnQuickReset').addEventListener('click',function(){
     qrArm=0;
     S.balance=S.def.balance;S.startBal=S.def.balance;
     resetLadder();S.last=null;S.dbl=false;S.revealAt=0;revealShown=true;S.tagSel=null;snap=null;balPreview=false;
+    S.game=freshStats(); /* нова гра — статистика «Ця гра» починається заново */
     if(S.balance>S.stats.maxBal)S.stats.maxBal=S.balance;
     save();render();
     toast('↺ Скинуто: '+fmt(S.balance)+' ₴ · кроки як були ('+S.steps+')','good');
@@ -910,16 +963,34 @@ $('btnCloseStats').addEventListener('click',function(){$('modalStats').classList
 $('modalStats').addEventListener('click',function(e){if(e.target===this)this.classList.add('hidden');});
 $('sMinus').addEventListener('click',function(){adjustSteps(-1);syncSettings();});
 $('sPlus').addEventListener('click',function(){adjustSteps(1);syncSettings();});
+function doResetStats(){
+  var keepMax=Math.max(S.balance,10000);
+  S.stats=freshStats();
+  S.stats.maxBal=keepMax;
+  S.game=freshStats();
+  S.game.maxBal=keepMax;
+  S.last=null;
+  S.log=[];
+  save();render();
+  toast('Статистику скинуто','info');
+}
 $('btnResetStats').addEventListener('click',function(){
-  armConfirm(this,function(){
-    var keepMax=S.balance;
-    S.stats=freshStats();
-    S.stats.maxBal=keepMax;
-    S.last=null;
-    S.log=[];
-    save();render();
-    toast('Статистику скинуто','info');
-  });
+  armConfirm(this,doResetStats);
+});
+$('btnResetStatsTop').addEventListener('click',function(){
+  armConfirm(this,function(){doResetStats();syncStats();});
+});
+$('segMode').addEventListener('click',function(e){
+  var v=e.target&&e.target.getAttribute&&e.target.getAttribute('data-v');
+  if(!v)return;
+  S.statMode=v;
+  save();syncStats();
+});
+$('segPeriod').addEventListener('click',function(e){
+  var v=e.target&&e.target.getAttribute&&e.target.getAttribute('data-v');
+  if(!v)return;
+  S.statPeriod=v;
+  save();syncStats();
 });
 $('btnResetAll').addEventListener('click',function(){
   armConfirm(this,function(){
