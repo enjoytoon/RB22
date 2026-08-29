@@ -350,7 +350,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'big
   def:{balance:10000,steps:5},
   plan:null,step:0,dbl:false,
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
-  game:freshStats(),statMode:'all',statPeriod:'all',
+  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',
   phase:'bet',phaseEnd:Date.now()+BET_MS,
   last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
@@ -407,6 +407,7 @@ function load(){
   S.tagSel=TAGS.indexOf(d.tagSel)>=0?d.tagSel:null;
   S.stats=readStats(d.stats,S.balance);
   S.game=readStats(d.game,S.balance);
+  S.gameStart=num(d.gameStart,Date.now());
   S.statMode=(d.statMode==='real'||d.statMode==='fake')?d.statMode:'all';
   S.statPeriod=d.statPeriod==='game'?'game':'all';
   return S;
@@ -815,6 +816,13 @@ function syncStats(){
   if(S.statPeriod==='all'&&S.statMode!=='fake'){
     top+='<div class="stBig">Рекорд рахунку: <b>'+fmt(S.stats.maxBal)+' ₴</b></div>';
   }
+  if(S.statPeriod==='game'){
+    var gd=new Date(S.gameStart);
+    var p2=function(x){return (x<10?'0':'')+x;};
+    top+='<div class="stBig" style="font-size:11.5px;color:#8f8fb3">Ця гра — від скидання ↺ '
+      +p2(gd.getDate())+'.'+p2(gd.getMonth()+1)+' о '+p2(gd.getHours())+':'+p2(gd.getMinutes())
+      +' і до наступного скидання</div>';
+  }
   $('stTop').innerHTML=top;
   var sr='',mx=1,si;
   if(S.statMode!=='fake'){
@@ -942,6 +950,7 @@ $('btnQuickReset').addEventListener('click',function(){
     S.balance=S.def.balance;S.startBal=S.def.balance;
     resetLadder();S.last=null;S.dbl=false;S.revealAt=0;revealShown=true;S.tagSel=null;snap=null;balPreview=false;
     S.game=freshStats(); /* нова гра — статистика «Ця гра» починається заново */
+    S.gameStart=Date.now();
     if(S.balance>S.stats.maxBal)S.stats.maxBal=S.balance;
     save();render();
     toast('↺ Скинуто: '+fmt(S.balance)+' ₴ · кроки як були ('+S.steps+')','good');
@@ -969,6 +978,7 @@ function doResetStats(){
   S.stats.maxBal=keepMax;
   S.game=freshStats();
   S.game.maxBal=keepMax;
+  S.gameStart=Date.now();
   S.last=null;
   S.log=[];
   save();render();
