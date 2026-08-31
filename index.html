@@ -239,6 +239,10 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
       <div class="lbl">Ставок підряд<span class="sub">кроків у серії</span></div>
       <div class="step"><button id="sMinus">&#8722;</button><b id="vSteps">5</b><button id="sPlus">+</button></div>
     </div>
+    <div class="row">
+      <div class="lbl">Пауза цілі, сек<span class="sub">показ виграшу перед поверненням цілі</span></div>
+      <div class="step"><button id="gMinus">&#8722;</button><b id="vGoalPause">2</b><button id="gPlus">+</button></div>
+    </div>
     <div class="planPrev" id="planPrev"></div>
     <div class="row">
       <div class="lbl">Сума на кнопках<span class="sub">ставка на ЧЕРВОНЕ / ЧОРНЕ</span></div>
@@ -357,7 +361,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'big
   def:{balance:10000,steps:5},
   plan:null,step:0,dbl:false,
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
-  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,
+  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
   last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
@@ -418,6 +422,7 @@ function load(){
   S.statMode=(d.statMode==='real'||d.statMode==='fake')?d.statMode:'all';
   S.statPeriod=d.statPeriod==='game'?'game':'all';
   S.goalAlways=!!d.goalAlways;
+  S.goalPause=Math.min(10,Math.max(1,Math.round(num(d.goalPause,2))));
   return S;
 }
 function readStats(src,bal){
@@ -447,7 +452,9 @@ var pendMillion=false;
 var popAt=0;
 var snap=null; /* що показувати, поки крутиться: старий баланс, щоб не спалити результат */
 var balPreview=false; /* тап по балансу: сума-ЦІЛЬ (якщо виграю); тримається, поки не вимкнеш або не виграєш реальну */
+var goalHoldUntil=0; /* після виграшу з галочкою «завжди»: пауза, коли видно РЕАЛЬНИЙ рахунок */
 function previewGoal(){
+  if(Date.now()<goalHoldUntil)return 0;
   if(!balPreview&&!S.goalAlways)return 0;
   var pl=S.plan||planFor(S.balance,S.steps);
   if(!pl)return 0;
@@ -756,8 +763,12 @@ function revealFx(){
   /* без слів: тільки ✓/✗ на екрані, конфеті на реальному виграші */
   if(L.mode==='real'&&L.hit){
     confetti(16);
-    /* з галочкою «завжди» ціль не гасне — одразу перераховується під нову драбину */
-    if(!S.goalAlways)balPreview=false;
+    if(S.goalAlways){
+      /* пауза: кілька секунд видно реальний рахунок («я молодець»), потім ціль сама вертається */
+      goalHoldUntil=Date.now()+S.goalPause*1000;
+    }else{
+      balPreview=false;
+    }
   }
   if(pendMillion){
     pendMillion=false;
@@ -794,6 +805,7 @@ function confetti(nn){
 /* ---- модалки ---- */
 function syncSettings(){
   $('vSteps').textContent=S.steps;
+  $('vGoalPause').textContent=S.goalPause;
   var sa=$('segAmt').children,si;
   for(si=0;si<sa.length;si++)sa[si].classList.toggle('on',sa[si].getAttribute('data-v')===S.betAmt);
   var pl=planFor(S.balance,S.steps);
@@ -990,6 +1002,8 @@ $('btnCloseStats').addEventListener('click',function(){$('modalStats').classList
 $('modalStats').addEventListener('click',function(e){if(e.target===this)this.classList.add('hidden');});
 $('sMinus').addEventListener('click',function(){adjustSteps(-1);syncSettings();});
 $('sPlus').addEventListener('click',function(){adjustSteps(1);syncSettings();});
+$('gMinus').addEventListener('click',function(){S.goalPause=Math.max(1,S.goalPause-1);save();syncSettings();});
+$('gPlus').addEventListener('click',function(){S.goalPause=Math.min(10,S.goalPause+1);save();syncSettings();});
 function doResetStats(){
   var keepMax=Math.max(S.balance,10000);
   S.stats=freshStats();
@@ -1038,6 +1052,10 @@ catchUp();
 render();
 setInterval(function(){
   catchUp();
+  if(goalHoldUntil&&Date.now()>=goalHoldUntil){
+    goalHoldUntil=0;
+    render(); /* пауза скінчилась — ціль знову зеленим */
+  }
   if(S.revealAt&&!revealShown&&Date.now()>=S.revealAt){
     revealShown=true;
     snap=null; /* тепер можна показати новий баланс — разом із цифрою */
