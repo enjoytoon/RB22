@@ -98,8 +98,12 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .dot.r{background:#c01111}
 .dot.b{background:#0a0a0e;border:1px solid #55555f}
 .fakeSub{display:block;font-size:9px;font-weight:700;opacity:.65;letter-spacing:1.5px;margin-top:2px}
-#btnGoal{width:100%;margin-top:8px;padding:12px;border-radius:12px;background:#20203c;border:2px solid #31315a;color:#c9c9e8;font-size:13.5px;font-weight:800;letter-spacing:.5px}
+#goalRow{display:flex;gap:8px;margin-top:8px}
+#btnGoal{flex:1;padding:12px;border-radius:12px;background:#20203c;border:2px solid #31315a;color:#c9c9e8;font-size:13.5px;font-weight:800;letter-spacing:.5px}
 #btnGoal:active{transform:scale(.97)}
+#chkGoal{flex:none;width:46px;border-radius:12px;background:#20203c;border:2px solid #31315a;color:transparent;font-size:18px;font-weight:900}
+#chkGoal.on{color:#2dd4a7;border-color:#2dd4a7;background:rgba(45,212,167,.1)}
+#chkGoal:active{transform:scale(.94)}
 #betRow{display:flex;gap:10px;margin-top:10px}
 .betBtn{flex:1;height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;font-size:19px;font-weight:900;letter-spacing:1.5px;color:#fff;box-shadow:0 5px 16px rgba(0,0,0,.35)}
 .betBtn:active{transform:scale(.97)}
@@ -204,8 +208,8 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 
   <div id="actRow">
     <button id="btnDbl">ЧЕРЕЗ КРОК<small id="dblSub"></small></button>
-    <button id="btnStop">Стоп сет</button>
     <button id="btnSkip">Пропустити ▸▸</button>
+    <button id="btnStop">Стоп сет</button>
   </div>
 
   <div id="betRow">
@@ -218,7 +222,10 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
     <button class="fakeBtn" id="btnFakeBlack"><span class="dot b"></span>ЧОРНЕ<span class="fakeSub">ФЕЙК</span></button>
   </div>
 
-  <button id="btnGoal">Показати суму-ціль</button>
+  <div id="goalRow">
+    <button id="btnGoal">Показати суму-ціль</button>
+    <button id="chkGoal" aria-label="Завжди показувати ціль">✓</button>
+  </div>
 
   <div id="tagRow"></div>
 </div>
@@ -350,7 +357,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'big
   def:{balance:10000,steps:5},
   plan:null,step:0,dbl:false,
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
-  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',
+  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
   last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
@@ -410,6 +417,7 @@ function load(){
   S.gameStart=num(d.gameStart,Date.now());
   S.statMode=(d.statMode==='real'||d.statMode==='fake')?d.statMode:'all';
   S.statPeriod=d.statPeriod==='game'?'game':'all';
+  S.goalAlways=!!d.goalAlways;
   return S;
 }
 function readStats(src,bal){
@@ -440,7 +448,7 @@ var popAt=0;
 var snap=null; /* що показувати, поки крутиться: старий баланс, щоб не спалити результат */
 var balPreview=false; /* тап по балансу: сума-ЦІЛЬ (якщо виграю); тримається, поки не вимкнеш або не виграєш реальну */
 function previewGoal(){
-  if(!balPreview)return 0;
+  if(!balPreview&&!S.goalAlways)return 0;
   var pl=S.plan||planFor(S.balance,S.steps);
   if(!pl)return 0;
   var k=Math.min(S.step,pl.steps-1);
@@ -612,6 +620,7 @@ function render(){
   $('bal').classList.toggle('long',balStr.length>=7); /* довгі суми — трохи менший шрифт, щоб в один рядок */
   $('bal').classList.toggle('prev',previewOn);
   $('btnGoal').textContent=previewOn?'Скрити суму-ціль':'Показати суму-ціль';
+  $('chkGoal').classList.toggle('on',S.goalAlways);
   if(previewOn){
     $('rec').innerHTML='<b class="ok">якщо виграю ставку</b>';
   }else{
@@ -747,7 +756,8 @@ function revealFx(){
   /* без слів: тільки ✓/✗ на екрані, конфеті на реальному виграші */
   if(L.mode==='real'&&L.hit){
     confetti(16);
-    balPreview=false; /* ціль досягнуто — вертаємось до звичайного балансу */
+    /* з галочкою «завжди» ціль не гасне — одразу перераховується під нову драбину */
+    if(!S.goalAlways)balPreview=false;
   }
   if(pendMillion){
     pendMillion=false;
@@ -910,15 +920,23 @@ $('btnSkip').addEventListener('click',skipRound);
 $('btnStop').addEventListener('click',stopSet);
 $('stMinus').addEventListener('click',function(){adjustSteps(-1);});
 $('stPlus').addEventListener('click',function(){adjustSteps(1);});
-$('balRow').addEventListener('click',function(){
+function toggleGoal(){
   if(inSuspense())return;
-  balPreview=!balPreview;
-  render();
-});
-$('btnGoal').addEventListener('click',function(){
+  if(S.goalAlways||balPreview){
+    /* ховаємо повністю — вимикає і «завжди» */
+    S.goalAlways=false;balPreview=false;
+  }else{
+    balPreview=true;
+  }
+  save();render();
+}
+$('balRow').addEventListener('click',toggleGoal);
+$('btnGoal').addEventListener('click',toggleGoal);
+$('chkGoal').addEventListener('click',function(){
   if(inSuspense())return;
-  balPreview=!balPreview;
-  render();
+  S.goalAlways=!S.goalAlways;
+  balPreview=S.goalAlways;
+  save();render();
 });
 $('btnDbl').addEventListener('click',function(){
   var pl=S.plan||planFor(S.balance,S.steps);
