@@ -387,7 +387,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'off
   def:{balance:10000,steps:5},
   plan:null,step:0,dbl:false,
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
-  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:1000000,winGoalSet:false,dblGoal:false,nextDouble:0,
+  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:1000000,winGoalSet:false,dblGoal:true,dblGoalSet:false,nextDouble:20000,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
   last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
@@ -454,8 +454,14 @@ function load(){
   /* дефолтна ціль — мільйон; збережене значення поважаємо, лише якщо користувач сам його вводив */
   S.winGoalSet=!!d.winGoalSet;
   S.winGoal=S.winGoalSet?Math.max(0,Math.min(99999999,Math.round(num(d.winGoal,1000000)))):1000000;
-  S.dblGoal=!!d.dblGoal;
+  /* подвоєння за дефолтом УВІМКНЕНІ; збережений стан поважаємо, лише якщо перемикав сам */
+  S.dblGoalSet=!!d.dblGoalSet;
+  S.dblGoal=S.dblGoalSet?!!d.dblGoal:true;
   S.nextDouble=Math.max(0,Math.round(num(d.nextDouble,0)));
+  if(S.dblGoal&&S.nextDouble<=0){
+    var nd=S.def.balance*2;
+    if(nd>0){while(nd<=S.balance)nd*=2;S.nextDouble=nd;}
+  }
   return S;
 }
 /* наступний рубіж подвоєння: дефолт×2, ×4, ×8… — перший, що ВИЩЕ за поточний баланс */
@@ -1105,6 +1111,7 @@ $('btnApplyWinGoal').addEventListener('click',function(){
 });
 $('chkDbl').addEventListener('click',function(){
   S.dblGoal=!S.dblGoal;
+  S.dblGoalSet=true;
   if(S.dblGoal)bumpNextDouble();
   else S.nextDouble=0;
   save();syncSettings();
