@@ -104,6 +104,9 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 #chkGoal{flex:none;width:46px;border-radius:12px;background:#20203c;border:2px solid #31315a;color:transparent;font-size:18px;font-weight:900}
 #chkGoal.on{color:#c9c9e8}
 #chkGoal:active{transform:scale(.94)}
+#chkDbl{flex:none;width:46px;height:44px;border-radius:12px;background:#20203c;border:2px solid #31315a;color:transparent;font-size:18px;font-weight:900}
+#chkDbl.on{color:#c9c9e8}
+#chkDbl:active{transform:scale(.94)}
 #betRow{display:flex;gap:10px;margin-top:10px}
 .betBtn{flex:1;height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;font-size:19px;font-weight:900;letter-spacing:1.5px;color:#fff;box-shadow:0 5px 16px rgba(0,0,0,.35)}
 .betBtn:active{transform:scale(.97)}
@@ -250,6 +253,10 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
       </div>
     </div>
     <div class="row">
+      <div class="lbl">Святкувати подвоєння<span class="sub">20 000 → 40 000 → 80 000… від дефолту; без галочки — мільйон</span></div>
+      <button id="chkDbl">✓</button>
+    </div>
+    <div class="row">
       <div class="lbl">Ставок підряд<span class="sub">кроків у серії</span></div>
       <div class="step"><button id="sMinus">&#8722;</button><b id="vSteps">5</b><button id="sPlus">+</button></div>
     </div>
@@ -380,7 +387,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'off
   def:{balance:10000,steps:5},
   plan:null,step:0,dbl:false,
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
-  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:0,
+  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:0,dblGoal:false,nextDouble:0,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
   last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
@@ -445,7 +452,16 @@ function load(){
   S.goalAlways=!!d.goalAlways;
   S.goalPause=Math.min(10,Math.max(1,Math.round(num(d.goalPause,2))));
   S.winGoal=Math.max(0,Math.min(99999999,Math.round(num(d.winGoal,0))));
+  S.dblGoal=!!d.dblGoal;
+  S.nextDouble=Math.max(0,Math.round(num(d.nextDouble,0)));
   return S;
+}
+/* наступний рубіж подвоєння: дефолт×2, ×4, ×8… — перший, що ВИЩЕ за поточний баланс */
+function bumpNextDouble(){
+  var n=S.def.balance*2;
+  if(n<=0){S.nextDouble=0;return;}
+  while(n<=S.balance)n*=2;
+  S.nextDouble=n;
 }
 function readStats(src,bal){
   var st=freshStats(),bi;
@@ -471,7 +487,8 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 
 var revealShown=!S.revealAt||Date.now()>=S.revealAt;
 var pendMillion=false;
-var pendGoalFx=false; /* перетнули «Ціль гри» — привітати після ревілу */
+var pendGoalFx=0; /* перетнули «Ціль гри» — сума для привітання після ревілу */
+var pendDoubleFx=0; /* перетнули рубіж подвоєння — сума для привітання */
 var popAt=0;
 var snap=null; /* що показувати, поки крутиться: старий баланс, щоб не спалити результат */
 var balPreview=false; /* тап по балансу: сума-ЦІЛЬ (якщо виграю); тримається, поки не вимкнеш або не виграєш реальну */
@@ -556,7 +573,18 @@ function doBet(color,mode,skpArm){
     if(S.balance>S.game.maxBal)S.game.maxBal=S.balance;
     if(S.balance>=1000000&&!S.stats.million){S.stats.million=true;pendMillion=true;}
     /* перетнули задану «Ціль гри» знизу вгору — святкуємо як мільйон */
-    if(S.winGoal>0&&snap&&snap.bal<S.winGoal&&S.balance>=S.winGoal)pendGoalFx=true;
+    if(S.winGoal>0&&snap&&snap.bal<S.winGoal&&S.balance>=S.winGoal){
+      pendGoalFx=S.winGoal;
+      if(S.dblGoal){
+        /* свою ціль досягнуто — далі знову вмикається режим подвоєнь */
+        S.winGoal=0;
+        bumpNextDouble();
+      }
+    }else if(S.dblGoal&&S.winGoal===0&&S.nextDouble>0&&snap&&snap.bal<S.nextDouble&&S.balance>=S.nextDouble){
+      /* рубіж подвоєння: 20 000 → 40 000 → 80 000… */
+      pendDoubleFx=S.nextDouble;
+      bumpNextDouble();
+    }
   }else{
     for(ti=0;ti<T.length;ti++){st=T[ti];st.fake.n++;if(hit)st.fake.w++;}
   }
@@ -796,8 +824,14 @@ function revealFx(){
     }
   }
   if(pendGoalFx){
-    pendGoalFx=false;
-    setTimeout(function(){toast('🏆 ЦІЛЬ ДОСЯГНУТО: '+fmt(S.winGoal)+' ₴! 🏆','gold');confetti(140);},1200);
+    var goalSum=pendGoalFx;
+    pendGoalFx=0;
+    setTimeout(function(){toast('🏆 ЦІЛЬ ДОСЯГНУТО: '+fmt(goalSum)+' ₴! 🏆','gold');confetti(140);},1200);
+  }
+  if(pendDoubleFx){
+    var dblSum=pendDoubleFx;
+    pendDoubleFx=0;
+    setTimeout(function(){toast('🏆 ПОДВОЄННЯ: '+fmt(dblSum)+' ₴! 🏆','gold');confetti(140);},1200);
   }
   if(pendMillion){
     pendMillion=false;
@@ -835,6 +869,7 @@ function confetti(nn){
 function syncSettings(){
   $('inDef').value=fmt(S.def.balance);
   $('inWinGoal').value=S.winGoal?fmt(S.winGoal):'0';
+  $('chkDbl').classList.toggle('on',S.dblGoal);
   $('vSteps').textContent=S.steps;
   $('vGoalPause').textContent=S.goalPause;
   var sa=$('segAmt').children,si;
@@ -1013,6 +1048,7 @@ $('btnQuickReset').addEventListener('click',function(){
     resetLadder();S.last=null;S.dbl=false;S.revealAt=0;revealShown=true;S.tagSel=null;snap=null;balPreview=false;
     S.game=freshStats(); /* нова гра — статистика «Ця гра» починається заново */
     S.gameStart=Date.now();
+    if(S.dblGoal)bumpNextDouble(); /* рубіж подвоєння знову дефолт×2 */
     if(S.balance>S.stats.maxBal)S.stats.maxBal=S.balance;
     save();render();
     toast('↺ Скинуто: '+fmt(S.balance)+' ₴ · кроки як були ('+S.steps+')','good');
@@ -1045,6 +1081,7 @@ $('btnApplyDef').addEventListener('click',function(){
   var u=unitFor(v);
   v=Math.floor(v/u)*u; /* дефолт теж круглий */
   S.def.balance=v;
+  if(S.dblGoal)bumpNextDouble(); /* подвоєння рахуються від нового дефолту */
   save();syncSettings();render();
   toast('Дефолт: '+fmt(v)+' ₴ — ↺ скидатиме до цієї суми','info');
 });
@@ -1058,6 +1095,19 @@ $('btnApplyWinGoal').addEventListener('click',function(){
   save();syncSettings();
   toast(v>0?('Ціль гри: '+fmt(v)+' ₴ — досягнеш, привітаю!'):'Ціль гри вимкнена','info');
 });
+$('chkDbl').addEventListener('click',function(){
+  S.dblGoal=!S.dblGoal;
+  if(S.dblGoal)bumpNextDouble();
+  else S.nextDouble=0;
+  save();syncSettings();
+  toast(S.dblGoal?('Святкуємо подвоєння — наступний рубіж '+fmt(S.nextDouble)+' ₴'):'Подвоєння вимкнено — святкуємо мільйон','info');
+});
+function liveMoney(el){
+  var digits=String(el.value).replace(/[^\d]/g,'').slice(0,8);
+  el.value=digits?fmt(Number(digits)):'';
+}
+$('inDef').addEventListener('input',function(){liveMoney(this);});
+$('inWinGoal').addEventListener('input',function(){liveMoney(this);});
 function doResetStats(){
   var keepMax=Math.max(S.balance,S.def.balance);
   S.stats=freshStats();
