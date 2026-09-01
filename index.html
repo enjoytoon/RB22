@@ -204,13 +204,6 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 
   <div id="big"></div>
   <div id="histRow"></div>
-  <div id="ladder"></div>
-
-  <div id="actRow">
-    <button id="btnDbl">ЧЕРЕЗ КРОК<small id="dblSub"></small></button>
-    <button id="btnSkip">Пропустити ▸▸</button>
-    <button id="btnStop">Стоп сет</button>
-  </div>
 
   <div id="betRow">
     <button class="betBtn" id="btnRed"><span id="amtRed"></span><span class="betSub" id="subRed"></span></button>
@@ -222,10 +215,18 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
     <button class="fakeBtn" id="btnFakeBlack"><span class="dot b"></span>ЧОРНЕ<span class="fakeSub">ФЕЙК</span></button>
   </div>
 
+  <div id="actRow">
+    <button id="btnDbl">ЧЕРЕЗ КРОК<small id="dblSub"></small></button>
+    <button id="btnSkip">Пропустити ▸▸</button>
+    <button id="btnStop">Стоп сет</button>
+  </div>
+
   <div id="goalRow">
     <button id="btnGoal">Показати суму-ціль</button>
     <button id="chkGoal" aria-label="Завжди показувати ціль">✓</button>
   </div>
+
+  <div id="ladder"></div>
 
   <div id="tagRow"></div>
 </div>
@@ -318,7 +319,12 @@ function wordFor(c){return c==='r'?'ЧЕРВОНЕ':(c==='b'?'ЧОРНЕ':'ЗЕ�
 
 /* ---- план ставок: каскад залишку; кратність росте з банком, щоб суми були круглі ---- */
 function unitFor(balance){
-  if(balance>=10000)return 100;
+  if(balance>=10000){
+    /* лишаємо максимум 3 значущі цифри: 12 700, 248 000, 1 230 000 */
+    var u=100;
+    while(balance>=u*1000)u*=10;
+    return u;
+  }
   if(balance>=5000)return 50;
   if(balance>=2500)return 10;
   return UNIT; /* 5 */
@@ -357,7 +363,7 @@ function zeros(){var a=[],i;for(i=0;i<MAXSTEPS;i++)a.push(0);return a;}
 function freshBucket(){return {byStep:zeros(),losses:0};}
 function freshStats(){return {real:{n:0,w:0},fake:{n:0,w:0},byStep:zeros(),busts:0,profit:0,maxBal:10000,million:false,tags:{},untag:freshBucket()};}
 function seedMarks(){var a=[],i;for(i=0;i<HSHOW;i++)a.push(null);return a;}
-function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'big',
+function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'off',betAmtSet:false,
   def:{balance:10000,steps:5},
   plan:null,step:0,dbl:false,
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
@@ -387,7 +393,9 @@ function load(){
   var lu=unitFor(S.balance);
   S.balance=Math.floor(S.balance/lu)*lu; /* підрівнюємо хвостик наявної суми */
   S.steps=Math.min(MAXSTEPS,Math.max(1,Math.round(num(d.steps,5))));
-  S.betAmt=(d.betAmt==='small'||d.betAmt==='off')?d.betAmt:'big';
+  /* дефолт — БЕЗ суми; збережений вибір поважаємо, лише якщо користувач сам його зробив */
+  S.betAmtSet=!!d.betAmtSet;
+  S.betAmt=(S.betAmtSet&&(d.betAmt==='big'||d.betAmt==='small'||d.betAmt==='off'))?d.betAmt:'off';
   if(d.def&&typeof d.def==='object'){
     S.def.steps=Math.min(MAXSTEPS,Math.max(1,Math.round(num(d.def.steps,5))));
   }
@@ -961,6 +969,7 @@ $('segAmt').addEventListener('click',function(e){
   while(b&&b!==this&&b.tagName!=='BUTTON')b=b.parentNode;
   if(!b||b===this)return;
   S.betAmt=b.getAttribute('data-v');
+  S.betAmtSet=true; /* явний вибір — тепер він і зберігається */
   save();renderControls();syncSettings();
 });
 $('tagRow').addEventListener('click',function(e){
