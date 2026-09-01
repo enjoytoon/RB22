@@ -146,8 +146,8 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .step button{width:42px;height:42px;border-radius:12px;background:#33335a;color:#fff;font-size:21px;font-weight:700}
 .step button:active{transform:scale(.9)}
 .step b{min-width:26px;text-align:center;font-size:18px}
-#inDef{width:110px;padding:10px;border-radius:10px;border:1px solid #44446e;background:#1a1a2e;color:#fff;font-size:16px;font-weight:700;text-align:right}
-#btnApplyDef{padding:10px 12px;border-radius:10px;background:#33335a;font-size:13px;font-weight:700}
+#inDef,#inWinGoal{width:110px;padding:10px;border-radius:10px;border:1px solid #44446e;background:#1a1a2e;color:#fff;font-size:16px;font-weight:700;text-align:right}
+#btnApplyDef,#btnApplyWinGoal{padding:10px 12px;border-radius:10px;background:#33335a;font-size:13px;font-weight:700}
 .planPrev{font-size:12px;color:#a9a9cc;background:rgba(255,209,102,.06);border:1px solid rgba(255,209,102,.2);padding:9px 11px;border-radius:11px;line-height:1.5;margin:10px 0}
 .neut{width:100%;margin-top:2px;padding:12px;border-radius:12px;background:#33335a;color:#dcdcf0;font-size:13.5px;font-weight:700}
 .neut:active{transform:scale(.98)}
@@ -238,8 +238,15 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
     <div class="row">
       <div class="lbl">Сума за дефолтом<span class="sub">до неї скидає кнопка ↺</span></div>
       <div style="display:flex;gap:6px;align-items:center">
-        <input id="inDef" type="number" inputmode="numeric" min="0" max="99999999">
+        <input id="inDef" type="text" inputmode="numeric">
         <button id="btnApplyDef">OK</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="lbl">Ціль гри, ₴<span class="sub">досягнеш рахунком — привітаю (0 = вимкнено)</span></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="inWinGoal" type="text" inputmode="numeric">
+        <button id="btnApplyWinGoal">OK</button>
       </div>
     </div>
     <div class="row">
@@ -373,7 +380,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'off
   def:{balance:10000,steps:5},
   plan:null,step:0,dbl:false,
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
-  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,
+  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:0,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
   last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
@@ -437,6 +444,7 @@ function load(){
   S.statPeriod=d.statPeriod==='game'?'game':'all';
   S.goalAlways=!!d.goalAlways;
   S.goalPause=Math.min(10,Math.max(1,Math.round(num(d.goalPause,2))));
+  S.winGoal=Math.max(0,Math.min(99999999,Math.round(num(d.winGoal,0))));
   return S;
 }
 function readStats(src,bal){
@@ -463,6 +471,7 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 
 var revealShown=!S.revealAt||Date.now()>=S.revealAt;
 var pendMillion=false;
+var pendGoalFx=false; /* перетнули «Ціль гри» — привітати після ревілу */
 var popAt=0;
 var snap=null; /* що показувати, поки крутиться: старий баланс, щоб не спалити результат */
 var balPreview=false; /* тап по балансу: сума-ЦІЛЬ (якщо виграю); тримається, поки не вимкнеш або не виграєш реальну */
@@ -546,6 +555,8 @@ function doBet(color,mode,skpArm){
     if(S.balance>S.stats.maxBal)S.stats.maxBal=S.balance;
     if(S.balance>S.game.maxBal)S.game.maxBal=S.balance;
     if(S.balance>=1000000&&!S.stats.million){S.stats.million=true;pendMillion=true;}
+    /* перетнули задану «Ціль гри» знизу вгору — святкуємо як мільйон */
+    if(S.winGoal>0&&snap&&snap.bal<S.winGoal&&S.balance>=S.winGoal)pendGoalFx=true;
   }else{
     for(ti=0;ti<T.length;ti++){st=T[ti];st.fake.n++;if(hit)st.fake.w++;}
   }
@@ -784,9 +795,13 @@ function revealFx(){
       balPreview=false;
     }
   }
+  if(pendGoalFx){
+    pendGoalFx=false;
+    setTimeout(function(){toast('🏆 ЦІЛЬ ДОСЯГНУТО: '+fmt(S.winGoal)+' ₴! 🏆','gold');confetti(140);},1200);
+  }
   if(pendMillion){
     pendMillion=false;
-    setTimeout(function(){toast('🏆 МІЛЬЙОН! ТИ ЗРОБИВ ЦЕ! 🏆','gold');confetti(140);},1200);
+    setTimeout(function(){toast('🏆 МІЛЬЙОН! ТИ ЗРОБИВ ЦЕ! 🏆','gold');confetti(140);},1600);
   }
 }
 
@@ -818,7 +833,8 @@ function confetti(nn){
 
 /* ---- модалки ---- */
 function syncSettings(){
-  $('inDef').value=S.def.balance;
+  $('inDef').value=fmt(S.def.balance);
+  $('inWinGoal').value=S.winGoal?fmt(S.winGoal):'0';
   $('vSteps').textContent=S.steps;
   $('vGoalPause').textContent=S.goalPause;
   var sa=$('segAmt').children,si;
@@ -1020,13 +1036,27 @@ $('sMinus').addEventListener('click',function(){adjustSteps(-1);syncSettings();}
 $('sPlus').addEventListener('click',function(){adjustSteps(1);syncSettings();});
 $('gMinus').addEventListener('click',function(){S.goalPause=Math.max(1,S.goalPause-1);save();syncSettings();});
 $('gPlus').addEventListener('click',function(){S.goalPause=Math.min(10,S.goalPause+1);save();syncSettings();});
+function readMoney(el){
+  /* поле може містити пробіли (1 000 000) — беремо лише цифри */
+  return Math.max(0,Math.min(99999999,Math.round(Number(String(el.value).replace(/[^\d]/g,''))||0)));
+}
 $('btnApplyDef').addEventListener('click',function(){
-  var v=Math.max(0,Math.min(99999999,Math.round(Number($('inDef').value)||0)));
+  var v=readMoney($('inDef'));
   var u=unitFor(v);
   v=Math.floor(v/u)*u; /* дефолт теж круглий */
   S.def.balance=v;
   save();syncSettings();render();
   toast('Дефолт: '+fmt(v)+' ₴ — ↺ скидатиме до цієї суми','info');
+});
+$('btnApplyWinGoal').addEventListener('click',function(){
+  var v=readMoney($('inWinGoal'));
+  if(v>0){
+    var u=unitFor(v);
+    v=Math.floor(v/u)*u;
+  }
+  S.winGoal=v;
+  save();syncSettings();
+  toast(v>0?('Ціль гри: '+fmt(v)+' ₴ — досягнеш, привітаю!'):'Ціль гри вимкнена','info');
 });
 function doResetStats(){
   var keepMax=Math.max(S.balance,S.def.balance);
