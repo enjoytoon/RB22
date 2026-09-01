@@ -387,7 +387,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'off
   def:{balance:10000,steps:5},
   plan:null,step:0,dbl:false,
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
-  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:0,dblGoal:false,nextDouble:0,
+  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:1000000,winGoalSet:false,dblGoal:false,nextDouble:0,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
   last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
@@ -451,7 +451,9 @@ function load(){
   S.statPeriod=d.statPeriod==='game'?'game':'all';
   S.goalAlways=!!d.goalAlways;
   S.goalPause=Math.min(10,Math.max(1,Math.round(num(d.goalPause,2))));
-  S.winGoal=Math.max(0,Math.min(99999999,Math.round(num(d.winGoal,0))));
+  /* дефолтна ціль — мільйон; збережене значення поважаємо, лише якщо користувач сам його вводив */
+  S.winGoalSet=!!d.winGoalSet;
+  S.winGoal=S.winGoalSet?Math.max(0,Math.min(99999999,Math.round(num(d.winGoal,1000000)))):1000000;
   S.dblGoal=!!d.dblGoal;
   S.nextDouble=Math.max(0,Math.round(num(d.nextDouble,0)));
   return S;
@@ -578,9 +580,11 @@ function doBet(color,mode,skpArm){
       if(S.dblGoal){
         /* свою ціль досягнуто — далі знову вмикається режим подвоєнь */
         S.winGoal=0;
+        S.winGoalSet=true;
         bumpNextDouble();
       }
-    }else if(S.dblGoal&&S.winGoal===0&&S.nextDouble>0&&snap&&snap.bal<S.nextDouble&&S.balance>=S.nextDouble){
+    }
+    if(S.dblGoal&&!(S.winGoalSet&&S.winGoal>0)&&S.nextDouble>0&&snap&&snap.bal<S.nextDouble&&S.balance>=S.nextDouble&&pendGoalFx!==S.nextDouble){
       /* рубіж подвоєння: 20 000 → 40 000 → 80 000… */
       pendDoubleFx=S.nextDouble;
       bumpNextDouble();
@@ -826,7 +830,10 @@ function revealFx(){
   if(pendGoalFx){
     var goalSum=pendGoalFx;
     pendGoalFx=0;
-    setTimeout(function(){toast('🏆 ЦІЛЬ ДОСЯГНУТО: '+fmt(goalSum)+' ₴! 🏆','gold');confetti(140);},1200);
+    /* якщо ціль — мільйон і мільйонне привітання теж летить, не дублюємо */
+    if(!(goalSum===1000000&&pendMillion)){
+      setTimeout(function(){toast('🏆 ЦІЛЬ ДОСЯГНУТО: '+fmt(goalSum)+' ₴! 🏆','gold');confetti(140);},1200);
+    }
   }
   if(pendDoubleFx){
     var dblSum=pendDoubleFx;
@@ -1092,6 +1099,7 @@ $('btnApplyWinGoal').addEventListener('click',function(){
     v=Math.floor(v/u)*u;
   }
   S.winGoal=v;
+  S.winGoalSet=true;
   save();syncSettings();
   toast(v>0?('Ціль гри: '+fmt(v)+' ₴ — досягнеш, привітаю!'):'Ціль гри вимкнена','info');
 });
