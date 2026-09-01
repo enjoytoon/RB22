@@ -146,8 +146,8 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .step button{width:42px;height:42px;border-radius:12px;background:#33335a;color:#fff;font-size:21px;font-weight:700}
 .step button:active{transform:scale(.9)}
 .step b{min-width:26px;text-align:center;font-size:18px}
-#inBal{width:110px;padding:10px;border-radius:10px;border:1px solid #44446e;background:#1a1a2e;color:#fff;font-size:16px;font-weight:700;text-align:right}
-#btnApplyBal{padding:10px 12px;border-radius:10px;background:#33335a;font-size:13px;font-weight:700}
+#inDef{width:110px;padding:10px;border-radius:10px;border:1px solid #44446e;background:#1a1a2e;color:#fff;font-size:16px;font-weight:700;text-align:right}
+#btnApplyDef{padding:10px 12px;border-radius:10px;background:#33335a;font-size:13px;font-weight:700}
 .planPrev{font-size:12px;color:#a9a9cc;background:rgba(255,209,102,.06);border:1px solid rgba(255,209,102,.2);padding:9px 11px;border-radius:11px;line-height:1.5;margin:10px 0}
 .neut{width:100%;margin-top:2px;padding:12px;border-radius:12px;background:#33335a;color:#dcdcf0;font-size:13.5px;font-weight:700}
 .neut:active{transform:scale(.98)}
@@ -235,6 +235,13 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 <div id="modalSet" class="modal hidden">
   <div class="sheet">
     <h2>Налаштування</h2>
+    <div class="row">
+      <div class="lbl">Сума за дефолтом<span class="sub">до неї скидає кнопка ↺</span></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="inDef" type="number" inputmode="numeric" min="0" max="99999999">
+        <button id="btnApplyDef">OK</button>
+      </div>
+    </div>
     <div class="row">
       <div class="lbl">Ставок підряд<span class="sub">кроків у серії</span></div>
       <div class="step"><button id="sMinus">&#8722;</button><b id="vSteps">5</b><button id="sPlus">+</button></div>
@@ -397,9 +404,9 @@ function load(){
   S.betAmt=(S.betAmtSet&&(d.betAmt==='big'||d.betAmt==='small'||d.betAmt==='off'))?d.betAmt:'off';
   if(d.def&&typeof d.def==='object'){
     S.def.steps=Math.min(MAXSTEPS,Math.max(1,Math.round(num(d.def.steps,5))));
+    S.def.balance=Math.max(0,Math.round(num(d.def.balance,10000)));
   }
-  S.def.balance=10000; /* стандарт 10 000 і крапка — суму міняє тільки гра */
-  S.startBal=10000;
+  S.startBal=Math.max(0,Math.round(num(d.startBal,S.def.balance)));
   if(validPlan(d.plan))S.plan=d.plan;
   S.step=Math.max(0,Math.round(num(d.step,0)));
   if(!S.plan||S.step>=S.plan.steps){S.plan=null;S.step=0;}
@@ -491,7 +498,7 @@ function doBet(color,mode,skpArm){
   if(mode==='real'){
     if(!S.plan){
       var pl=planFor(S.balance,S.steps);
-      if(!pl){toast('Замало грошей — тапни ↺ двічі, почнеш з 10 000 ₴','bad');return;}
+      if(!pl){toast('Замало грошей — тапни ↺ двічі, почнеш з '+fmt(S.def.balance)+' ₴','bad');return;}
       S.plan=pl;S.step=0;
     }
     S.dbl=false;
@@ -698,7 +705,7 @@ function renderLadder(){
         +(pl.reduced?' · <span class="warn">'+pl.steps+' '+ukr(pl.steps,'крок','кроки','кроків')+'</span>':'');
       l2='План: '+pl.bets.map(fmt).join(' → ');
     }else{
-      l1='<span class="warn">Замало грошей — тапни ↺ двічі, почнеш знову з 10 000 ₴</span>';
+      l1='<span class="warn">Замало грошей — тапни ↺ двічі, почнеш знову з '+fmt(S.def.balance)+' ₴</span>';
       l2='Фейкові ставки можна завжди';
     }
   }
@@ -811,6 +818,7 @@ function confetti(nn){
 
 /* ---- модалки ---- */
 function syncSettings(){
+  $('inDef').value=S.def.balance;
   $('vSteps').textContent=S.steps;
   $('vGoalPause').textContent=S.goalPause;
   var sa=$('segAmt').children,si;
@@ -1012,8 +1020,16 @@ $('sMinus').addEventListener('click',function(){adjustSteps(-1);syncSettings();}
 $('sPlus').addEventListener('click',function(){adjustSteps(1);syncSettings();});
 $('gMinus').addEventListener('click',function(){S.goalPause=Math.max(1,S.goalPause-1);save();syncSettings();});
 $('gPlus').addEventListener('click',function(){S.goalPause=Math.min(10,S.goalPause+1);save();syncSettings();});
+$('btnApplyDef').addEventListener('click',function(){
+  var v=Math.max(0,Math.min(99999999,Math.round(Number($('inDef').value)||0)));
+  var u=unitFor(v);
+  v=Math.floor(v/u)*u; /* дефолт теж круглий */
+  S.def.balance=v;
+  save();syncSettings();render();
+  toast('Дефолт: '+fmt(v)+' ₴ — ↺ скидатиме до цієї суми','info');
+});
 function doResetStats(){
-  var keepMax=Math.max(S.balance,10000);
+  var keepMax=Math.max(S.balance,S.def.balance);
   S.stats=freshStats();
   S.stats.maxBal=keepMax;
   S.game=freshStats();
@@ -1048,7 +1064,7 @@ $('btnResetAll').addEventListener('click',function(){
     revealShown=true;
     snap=null;
     save();render();syncSettings();
-    toast('Гру скинуто — рахунок 10 000 ₴','info');
+    toast('Гру скинуто — рахунок '+fmt(S.balance)+' ₴','info');
   });
 });
 document.addEventListener('gesturestart',function(e){e.preventDefault();});
