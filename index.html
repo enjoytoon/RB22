@@ -132,6 +132,9 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 #toast.good{background:#0d7a52}
 #toast.bad{background:#9c1220}
 #toast.gold{background:#8a6d00}
+#toast .tTitle{font-size:13px;letter-spacing:1px;opacity:.95}
+#toast .tSum{font-size:27px;font-weight:900;margin:4px 0 2px;letter-spacing:.5px}
+#toast .tTail{font-size:14px;letter-spacing:3px}
 #toast.info{background:#33335a}
 .modal{position:fixed;inset:0;z-index:40;background:rgba(8,8,18,.66);display:flex;align-items:flex-end;justify-content:center;opacity:1;transition:opacity .2s}
 .modal.hidden{opacity:0;pointer-events:none}
@@ -838,17 +841,17 @@ function revealFx(){
     pendGoalFx=0;
     /* якщо ціль — мільйон і мільйонне привітання теж летить, не дублюємо */
     if(!(goalSum===1000000&&pendMillion)){
-      setTimeout(function(){toast('🏆 ЦІЛЬ ДОСЯГНУТО: '+fmt(goalSum)+' ₴! 🏆','gold');confetti(140);},1200);
+      setTimeout(function(){toastBig('🏆 ЦІЛЬ ДОСЯГНУТО 🏆',fmt(goalSum)+' ₴','🎉✨🎉');confetti(140);},1200);
     }
   }
   if(pendDoubleFx){
     var dblSum=pendDoubleFx;
     pendDoubleFx=0;
-    setTimeout(function(){toast('🏆 ПОДВОЄННЯ: '+fmt(dblSum)+' ₴! 🏆','gold');confetti(140);},1200);
+    setTimeout(function(){toastBig('🏆 ПОДВОЄННЯ 🏆',fmt(dblSum)+' ₴','🎉✨🎉');confetti(140);},1200);
   }
   if(pendMillion){
     pendMillion=false;
-    setTimeout(function(){toast('🏆 МІЛЬЙОН! ТИ ЗРОБИВ ЦЕ! 🏆','gold');confetti(140);},1600);
+    setTimeout(function(){toastBig('🏆 МІЛЬЙОН! ТИ ЗРОБИВ ЦЕ! 🏆','1 000 000 ₴','🎉🎉🎉');confetti(140);},1600);
   }
 }
 
@@ -860,6 +863,16 @@ function toast(txt,kind){
   el.className='on '+(kind||'info');
   clearTimeout(toastTmr);
   toastTmr=setTimeout(function(){el.className='';},3000);
+}
+/* святкове привітання: текст / СУМА великим / емодзі */
+function toastBig(title,sum,tail){
+  var el=$('toast');
+  el.innerHTML='<div class="tTitle">'+title+'</div>'
+    +'<div class="tSum">'+sum+'</div>'
+    +(tail?'<div class="tTail">'+tail+'</div>':'');
+  el.className='on gold';
+  clearTimeout(toastTmr);
+  toastTmr=setTimeout(function(){el.className='';},4500);
 }
 function confetti(nn){
   var fx=$('fx');fx.innerHTML='';
