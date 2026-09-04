@@ -260,6 +260,10 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
       <button id="chkDbl">✓</button>
     </div>
     <div class="row">
+      <div class="lbl">Кратність<span class="sub">ставок і округлення суми; Авто = 5/10/50/100 за розміром банку</span></div>
+      <div class="step"><button id="uMinus">&#8722;</button><b id="vUnit">Авто</b><button id="uPlus">+</button></div>
+    </div>
+    <div class="row">
       <div class="lbl">Ставок підряд<span class="sub">кроків у серії</span></div>
       <div class="step"><button id="sMinus">&#8722;</button><b id="vSteps">5</b><button id="sPlus">+</button></div>
     </div>
@@ -341,7 +345,10 @@ function pct(w,n){return n?Math.round(w/n*100)+'%':'—';}
 function wordFor(c){return c==='r'?'ЧЕРВОНЕ':(c==='b'?'ЧОРНЕ':'ЗЕРО');}
 
 /* ---- план ставок: каскад залишку; кратність росте з банком, щоб суми були круглі ---- */
-function unitFor(balance){
+var UNITS=[0,5,10,50,100,1000]; /* 0 = Авто */
+function unitFor(balance,modeOverride){
+  var m=(modeOverride!==undefined)?modeOverride:((typeof S==='object'&&S)?S.unitMode:0);
+  if(m>0)return m; /* фіксована кратність із налаштувань */
   if(balance>=10000){
     /* лишаємо максимум 3 значущі цифри: 12 700, 248 000, 1 230 000 */
     var u=100;
@@ -390,7 +397,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'off
   def:{balance:10000,steps:5},
   plan:null,step:0,dbl:false,
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
-  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:1000000,winGoalSet:false,dblGoal:true,dblGoalSet:false,nextDouble:20000,
+  game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:1000000,winGoalSet:false,dblGoal:true,dblGoalSet:false,nextDouble:20000,unitMode:0,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
   last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
@@ -413,7 +420,8 @@ function load(){
   try{d=JSON.parse(localStorage.getItem(KEY));}catch(e){}
   if(!d||typeof d!=='object')return S;
   S.balance=Math.max(0,Math.round(num(d.balance,10000)));
-  var lu=unitFor(S.balance);
+  S.unitMode=UNITS.indexOf(d.unitMode)>=0?d.unitMode:0;
+  var lu=unitFor(S.balance,S.unitMode);
   S.balance=Math.floor(S.balance/lu)*lu; /* підрівнюємо хвостик наявної суми */
   S.steps=Math.min(MAXSTEPS,Math.max(1,Math.round(num(d.steps,5))));
   /* дефолт — БЕЗ суми; збережений вибір поважаємо, лише якщо користувач сам його зробив */
@@ -847,7 +855,9 @@ function revealFx(){
   if(pendDoubleFx){
     var dblSum=pendDoubleFx;
     pendDoubleFx=0;
-    setTimeout(function(){toastBig('🏆 ПОДВОЄННЯ 🏆',fmt(dblSum)+' ₴','🎉✨🎉');confetti(140);},1200);
+    var mult=S.def.balance>0?Math.round(dblSum/S.def.balance):0;
+    var ttl=mult>=2?('🏆 ВІТАЮ! '+mult+'× WIN 🏆'):'🏆 ВІТАЮ! WIN 🏆';
+    setTimeout(function(){toastBig(ttl,fmt(dblSum)+' ₴','🎉✨🎉');confetti(140);},1200);
   }
   if(pendMillion){
     pendMillion=false;
@@ -896,6 +906,7 @@ function syncSettings(){
   $('inDef').value=fmt(S.def.balance);
   $('inWinGoal').value=S.winGoal?fmt(S.winGoal):'0';
   $('chkDbl').classList.toggle('on',S.dblGoal);
+  $('vUnit').textContent=S.unitMode>0?fmt(S.unitMode):'Авто';
   $('vSteps').textContent=S.steps;
   $('vGoalPause').textContent=S.goalPause;
   var sa=$('segAmt').children,si;
@@ -1065,19 +1076,23 @@ $('tagRow').addEventListener('click',function(e){
   save();renderTags();
 });
 var qrArm=0;
+/* скидання до дефолту: рахунок → дефолтна сума, нова гра; кроки, налаштування й загальна статистика лишаються */
+function doQuickReset(){
+  S.balance=S.def.balance;S.startBal=S.def.balance;
+  resetLadder();S.last=null;S.dbl=false;S.revealAt=0;revealShown=true;S.tagSel=null;snap=null;balPreview=false;
+  S.game=freshStats(); /* нова гра — статистика «Ця гра» починається заново */
+  S.gameStart=Date.now();
+  if(S.dblGoal)bumpNextDouble(); /* рубіж подвоєння знову дефолт×2 */
+  if(S.balance>S.stats.maxBal)S.stats.maxBal=S.balance;
+  save();render();
+  toast('↺ Скинуто: '+fmt(S.balance)+' ₴ · кроки як були ('+S.steps+')','good');
+}
 $('btnQuickReset').addEventListener('click',function(){
   if(inSuspense())return;
   var now=Date.now();
   if(now-qrArm<3000){
     qrArm=0;
-    S.balance=S.def.balance;S.startBal=S.def.balance;
-    resetLadder();S.last=null;S.dbl=false;S.revealAt=0;revealShown=true;S.tagSel=null;snap=null;balPreview=false;
-    S.game=freshStats(); /* нова гра — статистика «Ця гра» починається заново */
-    S.gameStart=Date.now();
-    if(S.dblGoal)bumpNextDouble(); /* рубіж подвоєння знову дефолт×2 */
-    if(S.balance>S.stats.maxBal)S.stats.maxBal=S.balance;
-    save();render();
-    toast('↺ Скинуто: '+fmt(S.balance)+' ₴ · кроки як були ('+S.steps+')','good');
+    doQuickReset();
   }else{
     qrArm=now;
     toast('Тапни ↺ ще раз — поверну дефолт ('+fmt(S.def.balance)+' ₴)','info');
@@ -1098,6 +1113,16 @@ $('sMinus').addEventListener('click',function(){adjustSteps(-1);syncSettings();}
 $('sPlus').addEventListener('click',function(){adjustSteps(1);syncSettings();});
 $('gMinus').addEventListener('click',function(){S.goalPause=Math.max(1,S.goalPause-1);save();syncSettings();});
 $('gPlus').addEventListener('click',function(){S.goalPause=Math.min(10,S.goalPause+1);save();syncSettings();});
+function stepUnit(d){
+  var i=UNITS.indexOf(S.unitMode);
+  if(i<0)i=0;
+  i=Math.max(0,Math.min(UNITS.length-1,i+d));
+  S.unitMode=UNITS[i];
+  snapBal(); /* суму одразу підрівнюємо під нову кратність */
+  save();syncSettings();render();
+}
+$('uMinus').addEventListener('click',function(){stepUnit(-1);});
+$('uPlus').addEventListener('click',function(){stepUnit(1);});
 function readMoney(el){
   /* поле може містити пробіли (1 000 000) — беремо лише цифри */
   return Math.max(0,Math.min(99999999,Math.round(Number(String(el.value).replace(/[^\d]/g,''))||0)));
@@ -1168,11 +1193,9 @@ $('segPeriod').addEventListener('click',function(e){
 });
 $('btnResetAll').addEventListener('click',function(){
   armConfirm(this,function(){
-    S=defaults();
-    revealShown=true;
-    snap=null;
-    save();render();syncSettings();
-    toast('Гру скинуто — рахунок '+fmt(S.balance)+' ₴','info');
+    /* те саме, що кнопка ↺ вгорі */
+    doQuickReset();
+    syncSettings();
   });
 });
 document.addEventListener('gesturestart',function(e){e.preventDefault();});
