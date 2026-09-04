@@ -370,7 +370,21 @@ function planFor(balance,wantSteps){
   for(n=Math.min(MAXSTEPS,Math.max(1,wantSteps));n>=1;n--){
     factor=(1<<n)-1;
     base=Math.floor(balance/factor/u)*u;
-    if(base<u)continue;
+    if(base<u){
+      /* на повне подвоєння трохи не вистачає: кроки від мінімалки, останній — усе, що лишилось
+         (лише якщо останній хоча б відбиває попередні програші) */
+      if(n>=2){
+        var first=u*((1<<(n-1))-1);
+        var last=Math.floor((balance-first)/u)*u;
+        if(last>=first){
+          bets=[];
+          for(k=0;k<n-1;k++)bets.push(u<<k);
+          bets.push(last);
+          return {bets:bets,committed:first+last,leftover:balance-first-last,steps:n,reduced:n<wantSteps,capped:true};
+        }
+      }
+      continue;
+    }
     bets=[];
     for(k=0;k<n;k++)bets.push(base<<k);
     rem=balance-base*factor;
@@ -512,6 +526,15 @@ var popAt=0;
 var snap=null; /* що показувати, поки крутиться: старий баланс, щоб не спалити результат */
 var balPreview=false; /* тап по балансу: сума-ЦІЛЬ (якщо виграю); тримається, поки не вимкнеш або не виграєш реальну */
 var goalHoldUntil=0; /* після виграшу з галочкою «завжди»: пауза, коли видно РЕАЛЬНИЙ рахунок */
+/* сума ставки на кроці k: на ОСТАННЬОМУ кроці активного сету — весь залишок рахунку
+   (разом із тим, що «зекономили» на пропущених кроках): виграв — виграв, програв — усе */
+function betAt(pl,k){
+  if(pl&&pl===S.plan&&k===pl.steps-1){
+    var u=unitFor(S.balance);
+    return Math.max(pl.bets[k],Math.floor(S.balance/u)*u);
+  }
+  return pl.bets[k];
+}
 function previewGoal(){
   if(Date.now()<goalHoldUntil)return 0;
   if(!balPreview&&!S.goalAlways)return 0;
@@ -519,7 +542,7 @@ function previewGoal(){
   if(!pl)return 0;
   var k=Math.min(S.step,pl.steps-1);
   var eff=(S.dbl&&(pl.steps-S.step)>=2)?k+1:k; /* «через крок» — грає наступна ставка */
-  return S.balance+pl.bets[eff];
+  return S.balance+betAt(pl,eff);
 }
 function inSuspense(){return !!(S.revealAt&&Date.now()<S.revealAt);}
 function pushHist(n,mark){
@@ -550,7 +573,7 @@ function doBet(color,mode,skpArm){
     /* «через крок»: пропускаємо поточну ставку і граємо одразу наступну (сет стає на крок коротший) */
     skp=!!skpArm&&(S.plan.steps-S.step)>=2;
     eff=S.step+(skp?1:0);
-    amount=S.plan.bets[eff];
+    amount=betAt(S.plan,eff);
   }else{
     var pv=S.plan||planFor(S.balance,S.steps);
     amount=pv?pv.bets[Math.min(S.step,pv.steps-1)]:0;
@@ -756,7 +779,7 @@ function renderLadder(){
   /* завжди рівно два рядки — щоб кнопки під драбиною не стрибали */
   var l1,l2;
   if(S.plan){
-    l1='Крок <b>'+(S.step+1)+' з '+S.plan.steps+'</b> · ставка <b>'+fmt(S.plan.bets[S.step])+' ₴</b> · лишилось '+(S.plan.steps-S.step);
+    l1='Крок <b>'+(S.step+1)+' з '+S.plan.steps+'</b> · ставка <b>'+fmt(betAt(S.plan,S.step))+' ₴</b> · лишилось '+(S.plan.steps-S.step);
     l2='План: '+S.plan.bets.map(fmt).join(' → ');
   }else{
     var pl=planFor(S.balance,S.steps);
@@ -780,8 +803,8 @@ function renderControls(){
   /* колір видно з самої кнопки — великими пишемо суму ставки */
   var amt,sub;
   if(!pl){amt='—';sub='нема грошей';}
-  else if(S.dbl){amt=fmt(pl.bets[k+1])+' ₴';sub='через крок';}
-  else{amt=fmt(pl.bets[k])+' ₴';sub='';}
+  else if(S.dbl){amt=fmt(betAt(pl,k+1))+' ₴';sub='через крок';}
+  else{amt=fmt(betAt(pl,k))+' ₴';sub='';}
   if(S.betAmt==='off'){
     /* суму сховано — повертаємо слова, колір і так видно з кнопки */
     $('amtRed').textContent='ЧЕРВОНЕ';
@@ -800,7 +823,7 @@ function renderControls(){
   $('dblSub').textContent=!canDbl
     ?'недоступно'
     :(S.dbl
-      ?('ставлю одразу '+fmt(pl.bets[S.step+1])+' ₴')
+      ?('ставлю одразу '+fmt(betAt(pl,S.step+1))+' ₴')
       :'пропустити цю ставку');
 }
 function renderTags(){
