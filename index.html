@@ -104,9 +104,9 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 #chkGoal{flex:none;width:46px;border-radius:12px;background:#20203c;border:2px solid #31315a;color:transparent;font-size:18px;font-weight:900}
 #chkGoal.on{color:#c9c9e8}
 #chkGoal:active{transform:scale(.94)}
-#chkDbl{flex:none;width:46px;height:44px;border-radius:12px;background:#20203c;border:2px solid #31315a;color:transparent;font-size:18px;font-weight:900}
-#chkDbl.on{color:#c9c9e8}
-#chkDbl:active{transform:scale(.94)}
+#chkDbl,#chkCancel{flex:none;width:46px;height:44px;border-radius:12px;background:#20203c;border:2px solid #31315a;color:transparent;font-size:18px;font-weight:900}
+#chkDbl.on,#chkCancel.on{color:#c9c9e8}
+#chkDbl:active,#chkCancel:active{transform:scale(.94)}
 #betRow{display:flex;gap:10px;margin-top:10px}
 .betBtn{flex:1;height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;font-size:19px;font-weight:900;letter-spacing:1.5px;color:#fff;box-shadow:0 5px 16px rgba(0,0,0,.35)}
 .betBtn:active{transform:scale(.97)}
@@ -242,6 +242,10 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 <div id="modalSet" class="modal hidden">
   <div class="sheet">
     <h2>Налаштування</h2>
+    <div class="row">
+      <div class="lbl">Грати зі скасуванням<span class="sub">ставка приймається до закриття вікна, її можна скасувати; без галочки — результат одразу, як раніше</span></div>
+      <button id="chkCancel">✓</button>
+    </div>
     <div class="row">
       <div class="lbl">Сума за дефолтом<span class="sub">до неї скидає кнопка ↺</span></div>
       <div style="display:flex;gap:6px;align-items:center">
@@ -414,7 +418,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'off
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
   game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:1000000,winGoalSet:false,dblGoal:true,dblGoalSet:false,nextDouble:20000,unitMode:0,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
-  pendingBet:null,last:null,revealAt:0,tagSel:null,stats:freshStats()};}
+  cancelMode:false,pendingBet:null,last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
 function validPlan(p){
   return !!(p&&typeof p==='object'
@@ -470,6 +474,7 @@ function load(){
   if(d.last&&typeof d.last==='object'&&typeof d.last.n==='number'&&d.last.n>=0&&d.last.n<=36)S.last=d.last;
   S.revealAt=num(d.revealAt,0);
   S.tagSel=TAGS.indexOf(d.tagSel)>=0?d.tagSel:null;
+  S.cancelMode=!!d.cancelMode;
   S.pendingBet=(d.pendingBet&&typeof d.pendingBet==='object'&&(d.pendingBet.color==='r'||d.pendingBet.color==='b'))?{color:d.pendingBet.color,skp:!!d.pendingBet.skp}:null;
   S.stats=readStats(d.stats,S.balance);
   S.game=readStats(d.game,S.balance);
@@ -652,20 +657,18 @@ function tapBet(color,mode){
     toast('Ставки закрито','info');
     return;
   }
-  if(mode==='real'){
-    /* реальна ставка приймається до закриття вікна: той самий колір ще раз — скасувати, інший — перекинути */
+  if(mode==='real'&&S.cancelMode){
+    /* режим «зі скасуванням»: ставка приймається до закриття вікна; той самий колір ще раз — скасувати, інший — перекинути */
     if(S.pendingBet&&S.pendingBet.color===color){
       S.pendingBet=null;
-      toast('Ставку скасовано','info');
     }else{
       if(!planFor(S.balance,S.steps)){toast('Замало грошей — тапни ↺ двічі, почнеш з '+fmt(S.def.balance)+' ₴','bad');return;}
       S.pendingBet={color:color,skp:!!S.dbl};
-      toast('Ставку прийнято — зіграє, коли закриються ставки','info');
     }
     save();render();
     return;
   }
-  doBet(color,mode,false);
+  doBet(color,mode,mode==='real'&&S.dbl);
 }
 function adjustSteps(d){
   if(inSuspense())return;
@@ -968,6 +971,7 @@ function syncSettings(){
   $('inDef').value=fmt(S.def.balance);
   $('inWinGoal').value=S.winGoal?fmt(S.winGoal):'0';
   $('chkDbl').classList.toggle('on',S.dblGoal);
+  $('chkCancel').classList.toggle('on',S.cancelMode);
   $('vUnit').textContent=S.unitMode>0?fmt(S.unitMode):'Авто';
   $('vSteps').textContent=S.steps;
   $('vGoalPause').textContent=S.goalPause;
@@ -1209,6 +1213,11 @@ $('btnApplyWinGoal').addEventListener('click',function(){
   S.winGoalSet=true;
   save();syncSettings();
   toast(v>0?('Ціль гри: '+fmt(v)+' ₴ — досягнеш, привітаю!'):'Ціль гри вимкнена','info');
+});
+$('chkCancel').addEventListener('click',function(){
+  S.cancelMode=!S.cancelMode;
+  if(!S.cancelMode)S.pendingBet=null;
+  save();syncSettings();render();
 });
 $('chkDbl').addEventListener('click',function(){
   S.dblGoal=!S.dblGoal;
