@@ -110,6 +110,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 #betRow{display:flex;gap:10px;margin-top:10px}
 .betBtn{flex:1;height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;font-size:19px;font-weight:900;letter-spacing:1.5px;color:#fff;box-shadow:0 5px 16px rgba(0,0,0,.35)}
 .betBtn:active{transform:scale(.97)}
+.betBtn.pend{outline:2px dashed rgba(255,255,255,.6);outline-offset:-5px}
 #btnRed{background:linear-gradient(160deg,#e01515,#9c0000)}
 #btnBlack{background:linear-gradient(160deg,#26262a,#050506);border:1px solid #3f3f46}
 .betSub{display:block;font-size:10.5px;font-weight:800;opacity:.8;letter-spacing:1px;margin-top:3px}
@@ -413,7 +414,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'off
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
   game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:1000000,winGoalSet:false,dblGoal:true,dblGoalSet:false,nextDouble:20000,unitMode:0,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
-  last:null,revealAt:0,tagSel:null,stats:freshStats()};}
+  pendingBet:null,last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
 function validPlan(p){
   return !!(p&&typeof p==='object'
@@ -469,6 +470,7 @@ function load(){
   if(d.last&&typeof d.last==='object'&&typeof d.last.n==='number'&&d.last.n>=0&&d.last.n<=36)S.last=d.last;
   S.revealAt=num(d.revealAt,0);
   S.tagSel=TAGS.indexOf(d.tagSel)>=0?d.tagSel:null;
+  S.pendingBet=(d.pendingBet&&typeof d.pendingBet==='object'&&(d.pendingBet.color==='r'||d.pendingBet.color==='b'))?{color:d.pendingBet.color,skp:!!d.pendingBet.skp}:null;
   S.stats=readStats(d.stats,S.balance);
   S.game=readStats(d.game,S.balance);
   S.gameStart=num(d.gameStart,Date.now());
@@ -650,7 +652,20 @@ function tapBet(color,mode){
     toast('Ставки закрито','info');
     return;
   }
-  doBet(color,mode,mode==='real'&&S.dbl);
+  if(mode==='real'){
+    /* реальна ставка приймається до закриття вікна: той самий колір ще раз — скасувати, інший — перекинути */
+    if(S.pendingBet&&S.pendingBet.color===color){
+      S.pendingBet=null;
+      toast('Ставку скасовано','info');
+    }else{
+      if(!planFor(S.balance,S.steps)){toast('Замало грошей — тапни ↺ двічі, почнеш з '+fmt(S.def.balance)+' ₴','bad');return;}
+      S.pendingBet={color:color,skp:!!S.dbl};
+      toast('Ставку прийнято — зіграє, коли закриються ставки','info');
+    }
+    save();render();
+    return;
+  }
+  doBet(color,mode,false);
 }
 function adjustSteps(d){
   if(inSuspense())return;
@@ -662,12 +677,18 @@ function stopSet(){
   if(inSuspense())return;
   if(!S.plan){toast('Сет і так не активний','info');return;}
   /* сума, що лишилась, стає банком нового сету; в статистику нічого не пишемо */
-  S.plan=null;S.step=0;S.dbl=false;S.tagSel=null;
+  S.plan=null;S.step=0;S.dbl=false;S.tagSel=null;S.pendingBet=null;
   save();render();
   toast('Сет зупинено — граєш далі з '+fmt(S.balance)+' ₴','info');
 }
 function skipRound(){
   if(inSuspense())return;
+  if(S.pendingBet){
+    /* «Зіграти зараз»: не чекаємо закриття вікна */
+    var pb=S.pendingBet;S.pendingBet=null;
+    doBet(pb.color,'real',pb.skp);
+    return;
+  }
   if(S.phase==='spin'){
     S.phaseEnd=Math.min(S.phaseEnd,Date.now()+400);
     return;
@@ -690,7 +711,15 @@ function catchUp(){
     S.phaseEnd=Date.now()+(S.phase==='bet'?BET_MS:SPIN_MS);changed=true;
   }
   while(Date.now()>=S.phaseEnd&&spins<220){
-    if(S.phase==='bet'){S.phase='spin';S.phaseEnd+=SPIN_MS;}
+    if(S.phase==='bet'){
+      if(S.pendingBet){
+        /* ставки закрились — прийнята реальна ставка грає */
+        var pb=S.pendingBet;S.pendingBet=null;
+        doBet(pb.color,'real',pb.skp);
+        return;
+      }
+      S.phase='spin';S.phaseEnd+=SPIN_MS;
+    }
     else{
       pushHist(rnd37());
       popAt=Date.now();
@@ -816,6 +845,16 @@ function renderControls(){
   $('betRow').classList.toggle('small',S.betAmt==='small');
   $('subRed').textContent=sub;
   $('subBlack').textContent=sub;
+  /* прийнята реальна ставка: та кнопка стає «СКАСУВАТИ», «Пропустити» — «Зіграти зараз» */
+  var pb=S.pendingBet;
+  $('btnRed').classList.toggle('pend',!!pb&&pb.color==='r');
+  $('btnBlack').classList.toggle('pend',!!pb&&pb.color==='b');
+  if(pb){
+    var pid=pb.color==='r'?'Red':'Black';
+    $('amt'+pid).textContent='СКАСУВАТИ';
+    $('sub'+pid).textContent='ставку прийнято';
+  }
+  $('btnSkip').textContent=pb?'Зіграти зараз ▸▸':'Пропустити ▸▸';
   var b=$('btnDbl');
   b.classList.toggle('on',S.dbl);
   b.classList.toggle('off',!canDbl);
@@ -844,7 +883,7 @@ function renderTimer(){
     document.body.classList.add('spinPhase');
   }else{
     var left=Math.max(0,S.phaseEnd-Date.now());
-    lbl='Ставки відкрито';
+    lbl=S.pendingBet?'Ставку прийнято · зіграє при закритті':'Ставки відкрито';
     secTxt=Math.ceil(left/1000)+'с';
     fill=Math.max(0,Math.min(100,left/BET_MS*100));
     document.body.classList.remove('spinPhase');
@@ -1080,6 +1119,7 @@ $('btnDbl').addEventListener('click',function(){
   var pl=S.plan||planFor(S.balance,S.steps);
   if(!pl||(pl.steps-S.step)<2){toast('«Через крок» недоступно — це останній крок драбини','info');return;}
   S.dbl=!S.dbl;
+  if(S.pendingBet)S.pendingBet.skp=S.dbl; /* прийнята ставка теж стає «через крок» */
   save();renderControls();
 });
 $('segAmt').addEventListener('click',function(e){
@@ -1102,7 +1142,7 @@ var qrArm=0;
 /* скидання до дефолту: рахунок → дефолтна сума, нова гра; кроки, налаштування й загальна статистика лишаються */
 function doQuickReset(){
   S.balance=S.def.balance;S.startBal=S.def.balance;
-  resetLadder();S.last=null;S.dbl=false;S.revealAt=0;revealShown=true;S.tagSel=null;snap=null;balPreview=false;
+  resetLadder();S.last=null;S.dbl=false;S.revealAt=0;revealShown=true;S.tagSel=null;snap=null;balPreview=false;S.pendingBet=null;
   S.game=freshStats(); /* нова гра — статистика «Ця гра» починається заново */
   S.gameStart=Date.now();
   if(S.dblGoal)bumpNextDouble(); /* рубіж подвоєння знову дефолт×2 */
