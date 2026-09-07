@@ -247,7 +247,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
       <button id="chkCancel">✓</button>
     </div>
     <div class="row">
-      <div class="lbl">Стиль E<span class="sub">результат одразу, а замість «Через крок» — кнопка +155 до рахунку</span></div>
+      <div class="lbl">Стиль E<span class="sub">гра рівнями: старт 155 ₴, 5 виграних сетів = рівень і +155 ₴; програв усе — заново; ціль 26 155</span></div>
       <button id="chkStyleE">✓</button>
     </div>
     <div class="row">
@@ -356,6 +356,7 @@ function wordFor(c){return c==='r'?'ЧЕРВОНЕ':(c==='b'?'ЧОРНЕ':'ЗЕ�
 /* ---- план ставок: каскад залишку; кратність росте з банком, щоб суми були круглі ---- */
 var UNITS=[0,5,10,50,100,1000]; /* 0 = Авто */
 function unitFor(balance,modeOverride){
+  if(modeOverride===undefined&&typeof S==='object'&&S&&S.style==='E')return 5; /* стиль E — все кратно 5 */
   var m=(modeOverride!==undefined)?modeOverride:((typeof S==='object'&&S)?S.unitMode:0);
   if(m>0)return m; /* фіксована кратність із налаштувань */
   if(balance>=10000){
@@ -422,7 +423,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'off
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
   game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:1000000,winGoalSet:false,dblGoal:true,dblGoalSet:false,nextDouble:20000,unitMode:0,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
-  style:'plain',pendingBet:null,last:null,revealAt:0,tagSel:null,stats:freshStats()};}
+  style:'plain',eLvl:1,eTicks:0,eBal:155,preBal:0,pendingBet:null,last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
 function validPlan(p){
   return !!(p&&typeof p==='object'
@@ -444,8 +445,6 @@ function load(){
   if(!d||typeof d!=='object')return S;
   S.balance=Math.max(0,Math.round(num(d.balance,10000)));
   S.unitMode=UNITS.indexOf(d.unitMode)>=0?d.unitMode:0;
-  var lu=unitFor(S.balance,S.unitMode);
-  S.balance=Math.floor(S.balance/lu)*lu; /* підрівнюємо хвостик наявної суми */
   S.steps=Math.min(MAXSTEPS,Math.max(1,Math.round(num(d.steps,5))));
   /* дефолт — БЕЗ суми; збережений вибір поважаємо, лише якщо користувач сам його зробив */
   S.betAmtSet=!!d.betAmtSet;
@@ -498,6 +497,12 @@ function load(){
     var nd=S.def.balance*2;
     if(nd>0){while(nd<=S.balance)nd*=2;S.nextDouble=nd;}
   }
+  S.eLvl=Math.max(1,Math.round(num(d.eLvl,1)));
+  S.eTicks=Math.min(4,Math.max(0,Math.round(num(d.eTicks,0))));
+  S.eBal=Math.max(0,Math.round(num(d.eBal,155)));
+  S.preBal=Math.max(0,Math.round(num(d.preBal,0)));
+  var lu=(S.style==='E')?5:unitFor(S.balance,S.unitMode);
+  S.balance=Math.floor(S.balance/lu)*lu; /* підрівнюємо хвостик наявної суми */
   return S;
 }
 /* наступний рубіж подвоєння: дефолт×2, ×4, ×8… — перший, що ВИЩЕ за поточний баланс */
@@ -533,6 +538,8 @@ var revealShown=!S.revealAt||Date.now()>=S.revealAt;
 var pendMillion=false;
 var pendGoalFx=0; /* перетнули «Ціль гри» — сума для привітання після ревілу */
 var pendDoubleFx=0; /* перетнули рубіж подвоєння — сума для привітання */
+var pendLevelFx=0; /* стиль E: пройдено рівень (номер) */
+var pendEReset=false; /* стиль E: програв усе — заново зі 155 */
 var popAt=0;
 var snap=null; /* що показувати, поки крутиться: старий баланс, щоб не спалити результат */
 var balPreview=false; /* тап по балансу: сума-ЦІЛЬ (якщо виграю); тримається, поки не вимкнеш або не виграєш реальну */
@@ -622,11 +629,24 @@ function doBet(color,mode,skpArm){
       st.profit+=delta;
     }
     if(hit||bust)S.tagSel=null;
+    if(S.style==='E'){
+      if(hit){
+        /* виграний сет = галочка; 5 галочок = рівень пройдено, +155 */
+        S.eTicks++;
+        if(S.eTicks>=5){
+          S.eTicks=0;S.eLvl++;
+          S.balance+=155;
+          pendLevelFx=S.eLvl-1;
+        }
+      }else if(bust&&!planFor(S.balance,S.steps)){
+        pendEReset=true;
+      }
+    }
     if(S.balance>S.stats.maxBal)S.stats.maxBal=S.balance;
     if(S.balance>S.game.maxBal)S.game.maxBal=S.balance;
     if(S.balance>=1000000&&!S.stats.million){S.stats.million=true;pendMillion=true;}
     /* перетнули задану «Ціль гри» знизу вгору — святкуємо як мільйон */
-    if(S.winGoal>0&&snap&&snap.bal<S.winGoal&&S.balance>=S.winGoal){
+    if(S.style!=='E'&&S.winGoal>0&&snap&&snap.bal<S.winGoal&&S.balance>=S.winGoal){
       pendGoalFx=S.winGoal;
       if(S.dblGoal){
         /* свою ціль досягнуто — далі знову вмикається режим подвоєнь */
@@ -635,7 +655,7 @@ function doBet(color,mode,skpArm){
         bumpNextDouble();
       }
     }
-    if(S.dblGoal&&!(S.winGoalSet&&S.winGoal>0)&&S.nextDouble>0&&snap&&snap.bal<S.nextDouble&&S.balance>=S.nextDouble&&pendGoalFx!==S.nextDouble){
+    if(S.style!=='E'&&S.dblGoal&&!(S.winGoalSet&&S.winGoal>0)&&S.nextDouble>0&&snap&&snap.bal<S.nextDouble&&S.balance>=S.nextDouble&&pendGoalFx!==S.nextDouble){
       /* рубіж подвоєння: 20 000 → 40 000 → 80 000… */
       pendDoubleFx=S.nextDouble;
       bumpNextDouble();
@@ -828,6 +848,11 @@ function renderLadder(){
       l2='Фейкові ставки можна завжди';
     }
   }
+  if(S.style==='E'){
+    var tks='',ti2;
+    for(ti2=0;ti2<5;ti2++)tks+=ti2<S.eTicks?'✓':'○';
+    l2+='<br>Рівень <b>'+S.eLvl+(S.eLvl<=21?' з 21':'')+'</b> · '+tks+' · ціль 26 155 ₴';
+  }
   $('ladder').innerHTML=l1+'<br>'+l2;
 }
 function renderControls(){
@@ -863,24 +888,14 @@ function renderControls(){
   }
   $('btnSkip').textContent=pb?'Зіграти зараз ▸▸':'Пропустити ▸▸';
   var b=$('btnDbl');
-  if(S.style==='E'){
-    /* стиль E: замість «Через крок» — поповнення +155 з підтвердженням на кнопці */
-    if(S.dbl)S.dbl=false;
-    b.classList.remove('on');
-    b.classList.remove('off');
-    var armed=addArm&&Date.now()-addArm<2600;
-    $('dblMain').textContent=armed?'ТОЧНО?':'+155';
-    $('dblSub').textContent=armed?'тапни ще раз':'до рахунку';
-  }else{
-    b.classList.toggle('on',S.dbl);
-    b.classList.toggle('off',!canDbl);
-    $('dblMain').textContent='ЧЕРЕЗ КРОК';
-    $('dblSub').textContent=!canDbl
-      ?'недоступно'
-      :(S.dbl
-        ?('ставлю одразу '+fmt(betAt(pl,S.step+1))+' ₴')
-        :'пропустити цю ставку');
-  }
+  b.classList.toggle('on',S.dbl);
+  b.classList.toggle('off',!canDbl);
+  $('dblMain').textContent='ЧЕРЕЗ КРОК';
+  $('dblSub').textContent=!canDbl
+    ?'недоступно'
+    :(S.dbl
+      ?('ставлю одразу '+fmt(betAt(pl,S.step+1))+' ₴')
+      :'пропустити цю ставку');
   $('btnStop').classList.toggle('off',!S.plan);
 }
 function renderTags(){
@@ -938,6 +953,19 @@ function revealFx(){
     var mult=S.def.balance>0?Math.round(dblSum/S.def.balance):0;
     var ttl=mult>=2?('🏆 ВІТАЮ! '+mult+'× WIN 🏆'):'🏆 ВІТАЮ! WIN 🏆';
     setTimeout(function(){toastBig(ttl,fmt(dblSum)+' ₴','🎉✨🎉');confetti(140);},1200);
+  }
+  if(pendLevelFx){
+    var lvDone=pendLevelFx;pendLevelFx=0;
+    var mega=lvDone>=21;
+    setTimeout(function(){
+      toastBig(mega?'🏆 ВСІ 21 РІВЕНЬ! ТИ ЗРОБИВ ЦЕ! 🏆':'🏆 РІВЕНЬ ПРОЙДЕНО 🏆',fmt(S.balance)+' ₴','🎉✨🎉');
+      confetti(mega?160:90);
+    },1200);
+  }
+  if(pendEReset){
+    pendEReset=false;
+    S.balance=155;S.startBal=155;S.eLvl=1;S.eTicks=0;resetLadder();
+    save();render();
   }
   if(pendMillion){
     pendMillion=false;
@@ -1135,21 +1163,7 @@ $('chkGoal').addEventListener('click',function(){
   balPreview=S.goalAlways;
   save();render();
 });
-var addArm=0; /* стиль E: перший тап +155 — озброєння, другий — додати */
 $('btnDbl').addEventListener('click',function(){
-  if(S.style==='E'){
-    if(addArm&&Date.now()-addArm<2600){
-      addArm=0;
-      S.balance+=155;
-      if(S.balance>S.stats.maxBal)S.stats.maxBal=S.balance;
-      if(S.balance>S.game.maxBal)S.game.maxBal=S.balance;
-      save();render();
-    }else{
-      addArm=Date.now();
-      renderControls();
-    }
-    return;
-  }
   var pl=S.plan||planFor(S.balance,S.steps);
   if(!pl||(pl.steps-S.step)<2){toast('«Через крок» недоступно — це останній крок драбини','info');return;}
   S.dbl=!S.dbl;
@@ -1175,7 +1189,11 @@ $('tagRow').addEventListener('click',function(e){
 var qrArm=0;
 /* скидання до дефолту: рахунок → дефолтна сума, нова гра; кроки, налаштування й загальна статистика лишаються */
 function doQuickReset(){
-  S.balance=S.def.balance;S.startBal=S.def.balance;
+  if(S.style==='E'){
+    S.balance=155;S.startBal=155;S.eLvl=1;S.eTicks=0;
+  }else{
+    S.balance=S.def.balance;S.startBal=S.def.balance;
+  }
   resetLadder();S.last=null;S.dbl=false;S.revealAt=0;revealShown=true;S.tagSel=null;snap=null;balPreview=false;S.pendingBet=null;
   S.game=freshStats(); /* нова гра — статистика «Ця гра» починається заново */
   S.gameStart=Date.now();
@@ -1244,16 +1262,33 @@ $('btnApplyWinGoal').addEventListener('click',function(){
   save();syncSettings();
   toast(v>0?('Ціль гри: '+fmt(v)+' ₴ — досягнеш, привітаю!'):'Ціль гри вимкнена','info');
 });
+function leaveE(){
+  /* виходимо з E: прогрес зберігаємо, повертаємо звичайні гроші */
+  S.eBal=S.balance;
+  S.balance=S.preBal||S.def.balance;
+  S.startBal=S.def.balance;
+  resetLadder();
+}
 $('chkCancel').addEventListener('click',function(){
+  if(S.style==='E')leaveE();
   S.style=S.style==='A'?'plain':'A';
   if(S.style!=='A')S.pendingBet=null;
+  S.dbl=false;snap=null;S.revealAt=0;revealShown=true;
   save();syncSettings();render();
 });
 $('chkStyleE').addEventListener('click',function(){
-  S.style=S.style==='E'?'plain':'E';
-  S.pendingBet=null;
-  if(S.style==='E')S.dbl=false;
-  addArm=0;
+  if(S.style==='E'){
+    leaveE();
+    S.style='plain';
+  }else{
+    /* входимо в E: свої гроші відкладаємо, продовжуємо E-прогрес (старт 155) */
+    S.preBal=S.balance;
+    S.style='E';
+    S.balance=S.eBal||155;
+    S.startBal=155;
+    resetLadder();
+  }
+  S.pendingBet=null;S.dbl=false;S.tagSel=null;snap=null;balPreview=false;S.revealAt=0;revealShown=true;
   save();syncSettings();render();
 });
 $('chkDbl').addEventListener('click',function(){
@@ -1316,7 +1351,6 @@ catchUp();
 render();
 setInterval(function(){
   catchUp();
-  if(addArm&&Date.now()-addArm>=2600){addArm=0;renderControls();}
   if(goalHoldUntil&&Date.now()>=goalHoldUntil){
     goalHoldUntil=0;
     render(); /* пауза скінчилась — ціль знову зеленим */
