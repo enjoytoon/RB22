@@ -84,6 +84,13 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .etk{display:block;width:12px;height:12px;border-radius:50%;background:transparent}
 .etk.on{background:#5a5a8c}
 .eLv{font-size:15px;color:#e8e8f2;white-space:nowrap}
+/* стиль E: без вибору кроків, панель — лише єЦіль · кружечки · рівень; ставка/план — у самому низу */
+body.styleE .hpill{visibility:hidden}
+body.styleE #ladder{min-height:0}
+.eRow.solo{margin-top:0;padding-top:0;border-top:0}
+#ePlan{display:none;margin-top:24px;padding-top:12px;border-top:1px solid #26264a;font-size:12px;color:#8f8fb3;text-align:center;line-height:1.5}
+#ePlan b{color:#c9c9e0}
+body.styleE #ePlan{display:block}
 .warn{color:#ffd166}
 .ok{color:#2dd4a7}
 .bad{color:#ff6f6f}
@@ -243,6 +250,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
   </div>
 
   <div id="tagRow"></div>
+  <div id="ePlan"></div>
 </div>
 
 <div id="toast"></div>
@@ -280,7 +288,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
       <div class="lbl">Кратність<span class="sub">ставок і округлення суми; Авто = 5/10/50/100 за розміром банку</span></div>
       <div class="step"><button id="uMinus">&#8722;</button><b id="vUnit">Авто</b><button id="uPlus">+</button></div>
     </div>
-    <div class="row">
+    <div class="row" id="rowSteps">
       <div class="lbl">Ставок підряд<span class="sub">кроків у серії</span></div>
       <div class="step"><button id="sMinus">&#8722;</button><b id="vSteps">5</b><button id="sPlus">+</button></div>
     </div>
@@ -786,6 +794,7 @@ function catchUp(){
 
 /* ---- рендер ---- */
 function render(){
+  document.body.classList.toggle('styleE',S.style==='E');
   $('stVal').textContent=S.style==='E'?5:S.steps;
   var showBal,previewOn;
   if(inSuspense()&&snap){
@@ -875,8 +884,10 @@ function renderLadder(){
     var dots='',di;
     for(di=0;di<5;di++)dots+='<i class="etk'+(di<S.eTicks?' on':'')+'"></i>';
     var lv=S.eLvl<=21?(S.eLvl+' із 21'):'21 із 21 🏆';
-    l2+='<div class="eRow"><button class="eGoal'+(S.tagSel==='єЦіль'?' on':'')+'" id="eGoalBtn">єЦіль</button>'
+    $('ladder').innerHTML='<div class="eRow solo"><button class="eGoal'+(S.tagSel==='єЦіль'?' on':'')+'" id="eGoalBtn">єЦіль</button>'
       +'<span class="eDots">'+dots+'</span><b class="eLv">'+lv+'</b></div>';
+    $('ePlan').innerHTML=l1+'<br>'+l2; /* ця інформація не дуже потрібна — під усіма кнопками */
+    return;
   }
   $('ladder').innerHTML=l1+'<br>'+l2;
 }
@@ -1044,6 +1055,7 @@ function syncSettings(){
   $('chkStyleE').classList.toggle('on',S.style==='E');
   $('vUnit').textContent=S.unitMode>0?fmt(S.unitMode):'Авто';
   $('vSteps').textContent=S.style==='E'?5:S.steps;
+  $('rowSteps').style.display=S.style==='E'?'none':'';
   $('vGoalPause').textContent=S.goalPause;
   var sa=$('segAmt').children,si;
   for(si=0;si<sa.length;si++)sa[si].classList.toggle('on',sa[si].getAttribute('data-v')===S.betAmt);
