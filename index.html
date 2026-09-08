@@ -76,12 +76,13 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .hq.g{background:#0d8a49}
 #ladder{margin-top:8px;background:#20203c;border-radius:12px;padding:9px 12px;font-size:12.5px;color:#a9a9cc;line-height:1.5;text-align:center;min-height:58px}
 #ladder b{color:#e8e8f2}
-.eRow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #2c2c50}
-.eGoal{padding:7px 10px;border-radius:9px;background:#252547;color:#c9c9e8;font-size:12.5px;font-weight:800;border:2px solid transparent;letter-spacing:.3px}
+.eRow{display:flex;align-items:center;gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid #2c2c50}
+.eGoal{flex:0 0 40%;padding:10px 8px;border-radius:10px;background:#252547;color:#c9c9e8;font-size:13.5px;font-weight:800;border:2px solid transparent;letter-spacing:.4px}
 .eGoal.on{border-color:#ffd166;color:#ffd166;background:rgba(255,209,102,.12)}
-.eDots{display:flex;gap:7px}
-.etk{display:block;width:24px;height:24px;border-radius:50%;background:#33335a;border:2px solid #4a4a78}
-.etk.on{background:#2dd4a7;border-color:#2dd4a7;box-shadow:0 0 10px rgba(45,212,167,.55)}
+/* виграні сети — тихі кружечки справа: порожнє місце невидиме, зроблений з'являється кольором ободка */
+.eDots{display:flex;gap:6px;margin-left:auto}
+.etk{display:block;width:12px;height:12px;border-radius:50%;background:transparent}
+.etk.on{background:#5a5a8c}
 .eLv{font-size:15px;color:#e8e8f2;white-space:nowrap}
 .warn{color:#ffd166}
 .ok{color:#2dd4a7}
