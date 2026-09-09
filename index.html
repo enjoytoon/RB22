@@ -170,6 +170,8 @@ body.styleE #ePlan{display:block}
 .step b{min-width:26px;text-align:center;font-size:18px}
 #inDef,#inWinGoal{width:110px;padding:10px;border-radius:10px;border:1px solid #44446e;background:#1a1a2e;color:#fff;font-size:16px;font-weight:700;text-align:right}
 #btnApplyDef,#btnApplyWinGoal{padding:10px 12px;border-radius:10px;background:#33335a;font-size:13px;font-weight:700}
+.eHist{font-size:12px;color:#a9a9cc;background:#20203c;padding:9px 11px;border-radius:11px;line-height:1.6;margin:10px 0}
+.eHist b{color:#e8e8f2}
 .planPrev{font-size:12px;color:#a9a9cc;background:rgba(255,209,102,.06);border:1px solid rgba(255,209,102,.2);padding:9px 11px;border-radius:11px;line-height:1.5;margin:10px 0}
 .neut{width:100%;margin-top:2px;padding:12px;border-radius:12px;background:#33335a;color:#dcdcf0;font-size:13.5px;font-weight:700}
 .neut:active{transform:scale(.98)}
@@ -266,6 +268,7 @@ body.styleE #ePlan{display:block}
       <div class="lbl">Стиль E<span class="sub">гра рівнями: старт 155 ₴, завжди 5 кроків, 5 виграних сетів = рівень і +155 ₴; програв — на рахунку 0, ↺ починає заново; ціль 26 155</span></div>
       <button id="chkStyleE">✓</button>
     </div>
+    <div class="eHist" id="eHist"></div>
     <div class="row">
       <div class="lbl">Сума за дефолтом<span class="sub">до неї скидає кнопка ↺</span></div>
       <div style="display:flex;gap:6px;align-items:center">
@@ -398,6 +401,15 @@ function planE(balance){
   var bets=[base,base*2,base*4,base*8,base*16];
   return {bets:bets,committed:base*31,leftover:balance-base*31,steps:5,reduced:false};
 }
+/* стиль E: усі 21 рівень пройдено — рахуємо вкладено/виграно за ВСІ спроби, записуємо, далі тільки ↺ */
+function eFinish(){
+  S.eBonusAt=0;S.eDone=true;
+  var rec={t:Date.now(),inv:S.eCampInv,won:S.balance,fails:S.eCampFails};
+  S.eHist.unshift(rec);
+  if(S.eHist.length>50)S.eHist.length=50;
+  S.eCampInv=0;S.eCampFails=0;
+  return rec;
+}
 function eBonus(){
   /* +155 за рівень, підрівняне під поточну кратність (155 / 160 / 150 / 200) */
   var u=unitFor(S.balance);
@@ -453,7 +465,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'off
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
   game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:1000000,winGoalSet:false,dblGoal:true,dblGoalSet:false,nextDouble:20000,unitMode:0,
   phase:'bet',phaseEnd:Date.now()+BET_MS,
-  style:'plain',eLvl:1,eTicks:0,eBal:155,preBal:0,eBonusAt:0,pendingBet:null,last:null,revealAt:0,tagSel:null,stats:freshStats()};}
+  style:'plain',eLvl:1,eTicks:0,eBal:155,preBal:0,eBonusAt:0,eRunInv:155,eCampInv:155,eCampFails:0,eDone:false,eHist:[],pendingBet:null,last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
 function validPlan(p){
   return !!(p&&typeof p==='object'
@@ -530,6 +542,14 @@ function load(){
   S.eLvl=Math.max(1,Math.round(num(d.eLvl,1)));
   S.eTicks=Math.min(5,Math.max(0,Math.round(num(d.eTicks,0))));
   S.eBonusAt=Math.max(0,num(d.eBonusAt,0));
+  /* вкладено: у цю гру (від старту до програшу) і загалом від останнього фінального виграшу (усі невдалі спроби разом) */
+  S.eRunInv=Math.max(0,Math.round(num(d.eRunInv,155*S.eLvl)));
+  S.eCampInv=Math.max(0,Math.round(num(d.eCampInv,S.eRunInv)));
+  S.eCampFails=Math.max(0,Math.round(num(d.eCampFails,0)));
+  S.eDone=!!d.eDone;
+  if(Array.isArray(d.eHist))S.eHist=d.eHist.filter(function(h){
+    return h&&typeof h==='object'&&typeof h.t==='number'&&typeof h.inv==='number'&&typeof h.won==='number';
+  }).slice(0,50);
   if(S.eTicks>=5&&!S.eBonusAt)S.eBonusAt=Date.now(); /* бонус рівня ще не долетів — долетить одразу */
   S.eBal=Math.max(0,Math.round(num(d.eBal,155)));
   S.preBal=Math.max(0,Math.round(num(d.preBal,0)));
@@ -705,6 +725,7 @@ function doBet(color,mode,skpArm){
 function tapBet(color,mode){
   if(inSuspense())return;
   if(mode==='real'&&S.eBonusAt)return; /* E: бонус рівня ще долітає */
+  if(mode==='real'&&S.style==='E'&&S.eDone){toast('Гру виграно 🏆 — тапни ↺ двічі, почнеш нову','info');return;}
   if(S.phase==='spin'){
     /* ставки закриті — просто кажемо про це, нічого не чергуємо */
     toast('Ставки закрито','info');
@@ -883,10 +904,21 @@ function renderLadder(){
     /* зліва єЦіль, посередині 5 великих кружечків (зелений = виграний сет), справа рівень */
     var dots='',di;
     for(di=0;di<5;di++)dots+='<i class="etk'+(di<S.eTicks?' on':'')+'"></i>';
-    var lv=S.eLvl<=21?(S.eLvl+' із 21'):'21 із 21 🏆';
+    var lv=S.eDone?'21/21 🏆':(Math.min(S.eLvl,21)+'/21');
     $('ladder').innerHTML='<div class="eRow solo"><button class="eGoal'+(S.tagSel==='єЦіль'?' on':'')+'" id="eGoalBtn">єЦіль</button>'
       +'<span class="eDots">'+dots+'</span><b class="eLv">'+lv+'</b></div>';
-    $('ePlan').innerHTML=l1+'<br>'+l2; /* ця інформація не дуже потрібна — під усіма кнопками */
+    /* у самому низу: скільки вкладено в ЦЮ гру (155 + бонуси рівнів) і скільки з того виграно; попередні програші тут не рахуються */
+    var eNet=S.balance-S.eRunInv,inv;
+    if(S.eDone){
+      var h=S.eHist[0]||{inv:S.eRunInv,won:S.balance,fails:0};
+      inv='<span class="warn">ВИГРАНО 🏆</span> · вкладено <b>'+fmt(h.inv)+' ₴</b> · виграно <b>'+fmt(h.won)+' ₴</b> · '
+        +(h.won-h.inv>=0?'<b class="ok">+':'<b class="bad">−')+fmt(Math.abs(h.won-h.inv))+' ₴</b> · ↺ двічі — нова гра';
+      l1='';l2='';
+    }else{
+      inv='Ця гра: вкладено <b>'+fmt(S.eRunInv)+' ₴</b> · виграно '
+        +(eNet>=0?'<b class="ok">+':'<b class="bad">−')+fmt(Math.abs(eNet))+' ₴</b>';
+    }
+    $('ePlan').innerHTML=inv+(l1?'<br>'+l1+'<br>'+l2:''); /* ця інформація не дуже потрібна — під усіма кнопками */
     return;
   }
   $('ladder').innerHTML=l1+'<br>'+l2;
@@ -999,10 +1031,15 @@ function revealFx(){
     S.eBonusAt=Date.now()+2000;
     goalHoldUntil=Math.max(goalHoldUntil,S.eBonusAt);
     save();
-    setTimeout(function(){
-      toastBig(mega?'🏆 ALL 21 LEVELS! 🏆':'🏆 LEVEL UP! 🏆','',mega?'YOU DID IT! 🎉🎉🎉':'NEXT LEVEL 🎉');
-      confetti(mega?160:90);
-    },300);
+    if(mega){
+      /* фінал: вкладено за всі спроби (з програними) проти того, що на рахунку */
+      var fin=S.balance-S.eCampInv;
+      var finTxt='вкладено '+fmt(S.eCampInv)+' ₴ · '+(fin>=0?'вигода +':'збиток −')+fmt(Math.abs(fin))+' ₴'
+        +(S.eCampFails>0?' · спроб '+(S.eCampFails+1):'')+'<br>МОЛОДЕЦЬ! 🎉🎉🎉';
+      setTimeout(function(){toastBig('🏆 ALL 21 LEVELS! YOU DID IT! 🏆',fmt(S.balance)+' ₴',finTxt,12000);confetti(200);},300);
+    }else{
+      setTimeout(function(){toastBig('🏆 LEVEL UP! 🏆','','NEXT LEVEL 🎉');confetti(90);},300);
+    }
   }
   if(pendMillion){
     pendMillion=false;
@@ -1020,14 +1057,14 @@ function toast(txt,kind){
   toastTmr=setTimeout(function(){el.className='';},3000);
 }
 /* святкове привітання: текст / СУМА великим / емодзі */
-function toastBig(title,sum,tail){
+function toastBig(title,sum,tail,ms){
   var el=$('toast');
   el.innerHTML='<div class="tTitle">'+title+'</div>'
     +(sum?'<div class="tSum">'+sum+'</div>':'')
     +(tail?'<div class="tTail">'+tail+'</div>':'');
   el.className='on gold';
   clearTimeout(toastTmr);
-  toastTmr=setTimeout(function(){el.className='';},4500);
+  toastTmr=setTimeout(function(){el.className='';},ms||4500);
 }
 function confetti(nn){
   var fx=$('fx');fx.innerHTML='';
@@ -1047,7 +1084,22 @@ function confetti(nn){
 }
 
 /* ---- модалки ---- */
+function syncEHist(){
+  var h='',i,r,d,p2=function(x){return (x<10?'0':'')+x;};
+  if(S.style==='E'||S.eHist.length){
+    h+='<b>Стиль E</b> — зараз вкладено загалом <b>'+fmt(S.eCampInv)+' ₴</b>'+(S.eCampFails>0?' · невдалих спроб '+S.eCampFails:'')+' · у цю гру <b>'+fmt(S.eRunInv)+' ₴</b>';
+    for(i=0;i<S.eHist.length;i++){
+      r=S.eHist[i];d=new Date(r.t);
+      h+='<br>'+p2(d.getDate())+'.'+p2(d.getMonth()+1)+' — вкладено <b>'+fmt(r.inv)+' ₴</b> · виграно <b>'+fmt(r.won)+' ₴</b> · '
+        +(r.won-r.inv>=0?'<b class="ok">+':'<b class="bad">−')+fmt(Math.abs(r.won-r.inv))+' ₴</b>'+(r.fails>0?' · спроб '+(r.fails+1):'');
+    }
+    if(!S.eHist.length)h+='<br>Виграних ігор (усі 21 рівень) ще нема — буде тут';
+  }
+  $('eHist').innerHTML=h;
+  $('eHist').style.display=h?'':'none';
+}
 function syncSettings(){
+  syncEHist();
   $('inDef').value=fmt(S.def.balance);
   $('inWinGoal').value=S.winGoal?fmt(S.winGoal):'0';
   $('chkDbl').classList.toggle('on',S.dblGoal);
@@ -1240,7 +1292,11 @@ var qrArm=0;
 /* скидання до дефолту: рахунок → дефолтна сума, нова гра; кроки, налаштування й загальна статистика лишаються */
 function doQuickReset(){
   if(S.style==='E'){
+    if(S.eBonusAt&&S.eLvl>=21)eFinish(); /* фінал ще не долетів — зараховуємо */
+    if(!S.eDone)S.eCampFails++; /* не дійшов до 21 — невдала спроба, вкладене лишається в загальному рахунку */
+    S.eDone=false;
     S.balance=155;S.startBal=155;S.eLvl=1;S.eTicks=0;S.eBonusAt=0;
+    S.eRunInv=155;S.eCampInv+=155;
   }else{
     S.balance=S.def.balance;S.startBal=S.def.balance;
   }
@@ -1314,7 +1370,7 @@ $('btnApplyWinGoal').addEventListener('click',function(){
 });
 function leaveE(){
   /* виходимо з E: прогрес зберігаємо, повертаємо звичайні гроші */
-  if(S.eBonusAt){S.eBonusAt=0;S.eTicks=0;S.eLvl++;S.balance+=eBonus();}
+  if(S.eBonusAt){if(S.eLvl>=21)eFinish();else{var lb=eBonus();S.eBonusAt=0;S.eTicks=0;S.eLvl++;S.balance+=lb;S.eRunInv+=lb;S.eCampInv+=lb;}}
   S.eBal=S.balance;
   S.balance=S.preBal||S.def.balance;
   S.startBal=S.def.balance;
@@ -1404,8 +1460,11 @@ setInterval(function(){
   catchUp();
   if(S.eBonusAt&&!inSuspense()&&Date.now()>=S.eBonusAt){
     /* стиль E: 2 с показали виграш — тепер +бонус, наступний рівень, кружечки заново */
+    if(S.eLvl>=21){eFinish();resetLadder();save();render();return;}
+    var bn=eBonus();
     S.eBonusAt=0;S.eTicks=0;S.eLvl++;
-    S.balance+=eBonus();snapBal();resetLadder();
+    S.balance+=bn;S.eRunInv+=bn;S.eCampInv+=bn; /* бонус = ще один вклад */
+    snapBal();resetLadder();
     if(S.balance>S.stats.maxBal)S.stats.maxBal=S.balance;
     save();render();
   }
