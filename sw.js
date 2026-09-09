@@ -1,4 +1,4 @@
-const CACHE = 'redblack-v49';
+const CACHE = 'redblack-v50';
 const FILES = ['./', './index.html', './manifest.json', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -14,6 +14,20 @@ self.addEventListener('activate', e => {
   );
 });
 
+// Спершу мережа (свіжа версія одразу після заливки), кеш — лише коли офлайн.
 self.addEventListener('fetch', e => {
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    fetch(e.request, { cache: 'no-cache' })
+      .then(r => {
+        if (r && r.ok) {
+          const copy = r.clone();
+          caches.open(CACHE).then(c => c.put(e.request, copy));
+        }
+        return r;
+      })
+      .catch(() =>
+        caches.match(e.request).then(r => r || (e.request.mode === 'navigate' ? caches.match('./index.html') : undefined))
+      )
+  );
 });
