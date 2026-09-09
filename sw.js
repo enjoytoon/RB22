@@ -1,4 +1,4 @@
-const CACHE = 'redblack-v50';
+const CACHE = 'redblack-v51';
 const FILES = ['./', './index.html', './manifest.json', './icon-512.png'];
 
 self.addEventListener('install', e => {
