@@ -83,7 +83,7 @@ body.spinPhase #phFill{background:#e0223a;transition:none}
 .eDots{display:flex;gap:6px;margin-left:auto}
 .etk{display:block;width:12px;height:12px;border-radius:50%;background:transparent}
 .etk.on{background:#5a5a8c}
-.eLv{font-size:15px;color:#e8e8f2;white-space:nowrap}
+.eLv{font-size:17px;color:#e8e8f2;white-space:nowrap;letter-spacing:1px}
 /* стиль E: без вибору кроків, панель — лише єЦіль · кружечки · рівень; ставка/план — у самому низу */
 body.styleE .hpill{visibility:hidden}
 body.styleE #ladder{min-height:0}
@@ -409,6 +409,11 @@ function eFinish(){
   if(S.eHist.length>50)S.eHist.length=50;
   S.eCampInv=0;S.eCampFails=0;
   return rec;
+}
+function roman(n){
+  var R=[[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']],o='',i;
+  for(i=0;i<R.length;i++)while(n>=R[i][0]){o+=R[i][1];n-=R[i][0];}
+  return o;
 }
 function eBonus(){
   /* +155 за рівень, підрівняне під поточну кратність (155 / 160 / 150 / 200) */
@@ -904,7 +909,7 @@ function renderLadder(){
     /* зліва єЦіль, посередині 5 великих кружечків (зелений = виграний сет), справа рівень */
     var dots='',di;
     for(di=0;di<5;di++)dots+='<i class="etk'+(di<S.eTicks?' on':'')+'"></i>';
-    var lv=S.eDone?'21/21 🏆':(Math.min(S.eLvl,21)+'/21');
+    var lv=S.eDone?'XXI 🏆':roman(Math.min(S.eLvl,21)); /* рівень римськими, без «з 21» */
     $('ladder').innerHTML='<div class="eRow solo"><button class="eGoal'+(S.tagSel==='єЦіль'?' on':'')+'" id="eGoalBtn">єЦіль</button>'
       +'<span class="eDots">'+dots+'</span><b class="eLv">'+lv+'</b></div>';
     /* у самому низу: скільки вкладено в ЦЮ гру (155 + бонуси рівнів) і скільки з того виграно; попередні програші тут не рахуються */
