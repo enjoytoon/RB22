@@ -28,12 +28,12 @@ header{display:flex;align-items:center;gap:6px}
 .hsp{flex:1}
 .icoBtn{width:38px;height:38px;border-radius:12px;background:#252547;color:#c9c9e8;font-size:18px;line-height:1;flex:none}
 .icoBtn:active{transform:scale(.9)}
-#balRow{display:flex;align-items:baseline;justify-content:center;gap:10px;margin:8px 0 2px}
+#balRow{display:flex;align-items:baseline;justify-content:center;gap:8px;margin:8px 0 0}
 #balRow .cur{font-size:15px;color:#8f8fb3}
-#bal{font-size:34px;font-weight:800;letter-spacing:.5px}
-#bal.long{font-size:26px}
+#bal{font-size:34px;font-weight:800;letter-spacing:.5px;white-space:nowrap}
 #bal.prev{color:#2dd4a7}
-#rec{font-size:11px;color:#8f8fb3;white-space:nowrap}
+/* підпис під сумою: фіксована висота, щоб сума не стрибала, коли він порожній */
+#rec{font-size:11px;color:#8f8fb3;white-space:nowrap;text-align:center;height:15px;line-height:15px;margin-bottom:2px}
 #phaseBar{margin-top:8px;background:#20203c;border-radius:12px;padding:8px 12px 10px;position:relative;overflow:hidden}
 #phRow{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700}
 #phLbl{color:#2dd4a7;letter-spacing:.5px}
@@ -220,7 +220,8 @@ body.styleE #ePlan{display:block}
     <button class="icoBtn" id="btnSettings" aria-label="Налаштування">&#x2699;&#xFE0E;</button>
   </header>
 
-  <div id="balRow"><b id="bal">10 000</b><span class="cur">₴</span><span id="rec"></span></div>
+  <div id="balRow"><b id="bal">10 000</b><span class="cur">₴</span></div>
+  <div id="rec"></div>
 
   <div id="phaseBar">
     <div id="phRow"><span id="phLbl">Ставки відкрито</span><span id="phSec">15с</span></div>
@@ -359,7 +360,7 @@ body.styleE #ePlan{display:block}
 var FAST=/(^|[?&])fast/.test(location.search);
 var BET_MS=FAST?4000:15000, SPIN_MS=FAST?3000:15000;
 var SUSPENSE=1000;
-var APP_VER='v51'; /* міняти разом із CACHE у sw.js — видно внизу ⚙ */
+var APP_VER='v52'; /* міняти разом із CACHE у sw.js — видно внизу ⚙ */
 var KEY='redblack-v1', UNIT=5, HKEEP=30, HSHOW=14, MAXSTEPS=12;
 var TAGS=['100%','++','+','?','??','M','MM','єЦіль'];
 var REDS={1:1,3:1,5:1,7:1,9:1,12:1,14:1,16:1,18:1,19:1,21:1,23:1,25:1,27:1,30:1,32:1,34:1,36:1};
@@ -832,12 +833,11 @@ function render(){
   }
   var balStr=fmt(showBal);
   $('bal').textContent=balStr;
-  $('bal').classList.toggle('long',balStr.length>=7); /* довгі суми — трохи менший шрифт, щоб в один рядок */
-  $('bal').classList.toggle('prev',previewOn);
+  $('bal').classList.toggle('prev',previewOn); /* ціль — зелена, реальна — біла; розмір завжди той самий */
   $('btnGoal').textContent=previewOn?'Скрити суму-ціль':'Показати суму-ціль';
   $('chkGoal').classList.toggle('on',S.goalAlways);
   if(previewOn){
-    $('rec').innerHTML='<b class="ok">якщо виграю ставку</b>';
+    $('rec').innerHTML='';
   }else{
     var diff=showBal-S.startBal;
     var sign=diff>=0?'+':'−';
@@ -1416,7 +1416,10 @@ function liveMoney(el){
 }
 $('inDef').addEventListener('input',function(){liveMoney(this);});
 $('inWinGoal').addEventListener('input',function(){liveMoney(this);});
+/* стиль E: обнулити загальний рахунок вкладень і невдалих спроб (поточна гра лишається як є) */
+function eResetCounts(){S.eCampInv=S.eRunInv;S.eCampFails=0;}
 function doResetStats(){
+  eResetCounts();S.eHist=[]; /* і список виграних ігор E */
   var keepMax=Math.max(S.balance,S.def.balance);
   S.stats=freshStats();
   S.stats.maxBal=keepMax;
@@ -1448,8 +1451,9 @@ $('segPeriod').addEventListener('click',function(e){
 });
 $('btnResetAll').addEventListener('click',function(){
   armConfirm(this,function(){
-    /* те саме, що кнопка ↺ вгорі */
+    /* те саме, що кнопка ↺ вгорі, плюс у E обнуляється загальний рахунок вкладень/спроб */
     doQuickReset();
+    eResetCounts();save();
     syncSettings();
   });
 });
