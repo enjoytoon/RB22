@@ -303,6 +303,14 @@ body.styleE #ePlan{display:block}
       <div class="step"><button id="sMinus">&#8722;</button><b id="vSteps">5</b><button id="sPlus">+</button></div>
     </div>
     <div class="row">
+      <div class="lbl">Ставки відкрито, сек<span class="sub">скільки часу можна ставити</span></div>
+      <div class="step"><button id="bsMinus">&#8722;</button><b id="vBetSec">15</b><button id="bsPlus">+</button></div>
+    </div>
+    <div class="row">
+      <div class="lbl">Кулька крутиться, сек<span class="sub">ставки закрито; 0 — без паузи, ставки одразу знову відкриті</span></div>
+      <div class="step"><button id="spMinus">&#8722;</button><b id="vSpinSec">15</b><button id="spPlus">+</button></div>
+    </div>
+    <div class="row">
       <div class="lbl">Пауза цілі, сек<span class="sub">показ виграшу перед поверненням цілі</span></div>
       <div class="step"><button id="gMinus">&#8722;</button><b id="vGoalPause">2</b><button id="gPlus">+</button></div>
     </div>
@@ -363,9 +371,11 @@ body.styleE #ePlan{display:block}
 (function(){
 'use strict';
 var FAST=/(^|[?&])fast/.test(location.search);
-var BET_MS=FAST?4000:15000, SPIN_MS=FAST?3000:15000;
+var BET_MS=FAST?4000:15000, SPIN_MS=FAST?3000:15000; /* далі беруться з ⚙ — applyTimes() */
+/* вибір секунд у ⚙: вікно ставок (мінімум 1 — інакше ставити було б ніколи) і кручення (0 = без паузи) */
+var BET_SECS=[1,2,3,5,7,10,15,20,30,45,60], SPIN_SECS=[0,1,2,3,5,7,10,15,20,30,45,60];
 var SUSPENSE=1000;
-var APP_VER='v54'; /* міняти разом із CACHE у sw.js — видно внизу ⚙ */
+var APP_VER='v55'; /* міняти разом із CACHE у sw.js — видно внизу ⚙ */
 var KEY='redblack-v1', UNIT=5, HKEEP=30, HSHOW=14, MAXSTEPS=12;
 var TAGS=['100%','++','+','?','??','M','MM','єЦіль'];
 var REDS={1:1,3:1,5:1,7:1,9:1,12:1,14:1,16:1,18:1,19:1,21:1,23:1,25:1,27:1,30:1,32:1,34:1,36:1};
@@ -473,7 +483,7 @@ function defaults(){return {v:1,balance:10000,steps:5,startBal:10000,betAmt:'off
   plan:null,step:0,dbl:false,
   hist:seedHist(),histM:seedMarks(),log:[],logReal:false,
   game:freshStats(),gameStart:Date.now(),statMode:'all',statPeriod:'all',goalAlways:false,goalPause:2,winGoal:1000000,winGoalSet:false,dblGoal:true,dblGoalSet:false,nextDouble:20000,unitMode:0,
-  phase:'bet',phaseEnd:Date.now()+BET_MS,
+  phase:'bet',phaseEnd:Date.now()+BET_MS,betSec:15,spinSec:15,
   style:'plain',eLvl:1,eTicks:0,eBal:155,preBal:0,eBonusAt:0,eRunInv:155,eCampInv:155,eCampFails:0,eDone:false,eHist:[],pendingBet:null,last:null,revealAt:0,tagSel:null,stats:freshStats()};}
 function num(x,d){return (typeof x==='number'&&isFinite(x))?x:d;}
 function validPlan(p){
@@ -537,6 +547,8 @@ function load(){
   S.statPeriod=d.statPeriod==='game'?'game':'all';
   S.goalAlways=!!d.goalAlways;
   S.goalPause=Math.min(10,Math.max(1,Math.round(num(d.goalPause,2))));
+  S.betSec=BET_SECS.indexOf(d.betSec)>=0?d.betSec:15;
+  S.spinSec=SPIN_SECS.indexOf(d.spinSec)>=0?d.spinSec:15;
   /* дефолтна ціль — мільйон; збережене значення поважаємо, лише якщо користувач сам його вводив */
   S.winGoalSet=!!d.winGoalSet;
   S.winGoal=S.winGoalSet?Math.max(0,Math.min(99999999,Math.round(num(d.winGoal,1000000)))):1000000;
@@ -594,6 +606,12 @@ function readStats(src,bal){
 }
 var S=load();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+/* тривалість фаз із ⚙ (?fast у адресі — короткі, для перевірки) */
+function applyTimes(){
+  BET_MS=FAST?4000:S.betSec*1000;
+  SPIN_MS=FAST?3000:S.spinSec*1000;
+}
+applyTimes();
 
 var revealShown=!S.revealAt||Date.now()>=S.revealAt;
 var pendMillion=false;
@@ -1121,6 +1139,8 @@ function syncSettings(){
   $('vSteps').textContent=S.style==='E'?5:S.steps;
   $('rowSteps').style.display=S.style==='E'?'none':'';
   $('vGoalPause').textContent=S.goalPause;
+  $('vBetSec').textContent=S.betSec;
+  $('vSpinSec').textContent=S.spinSec;
   var sa=$('segAmt').children,si;
   for(si=0;si<sa.length;si++)sa[si].classList.toggle('on',sa[si].getAttribute('data-v')===S.betAmt);
   var pl=planFor(S.balance,S.steps);
@@ -1350,6 +1370,22 @@ $('sMinus').addEventListener('click',function(){adjustSteps(-1);syncSettings();}
 $('sPlus').addEventListener('click',function(){adjustSteps(1);syncSettings();});
 $('gMinus').addEventListener('click',function(){S.goalPause=Math.max(1,S.goalPause-1);save();syncSettings();});
 $('gPlus').addEventListener('click',function(){S.goalPause=Math.min(10,S.goalPause+1);save();syncSettings();});
+function stepSec(key,list,d){
+  var i=list.indexOf(S[key]);
+  if(i<0)i=list.indexOf(15);
+  S[key]=list[Math.max(0,Math.min(list.length-1,i+d))];
+  applyTimes();
+  /* поточна фаза не триває довше за нову тривалість (скоротив — діє одразу; подовжив — з наступної) */
+  if(!inSuspense()){
+    var cap=Date.now()+(S.phase==='spin'?SPIN_MS:BET_MS);
+    if(S.phaseEnd>cap)S.phaseEnd=cap;
+  }
+  save();syncSettings();catchUp();renderTimer();
+}
+$('bsMinus').addEventListener('click',function(){stepSec('betSec',BET_SECS,-1);});
+$('bsPlus').addEventListener('click',function(){stepSec('betSec',BET_SECS,1);});
+$('spMinus').addEventListener('click',function(){stepSec('spinSec',SPIN_SECS,-1);});
+$('spPlus').addEventListener('click',function(){stepSec('spinSec',SPIN_SECS,1);});
 function stepUnit(d){
   var i=UNITS.indexOf(S.unitMode);
   if(i<0)i=0;
